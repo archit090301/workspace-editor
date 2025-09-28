@@ -9,6 +9,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: 20
       - key: PORT
         value: 10000
 
@@ -43,7 +45,3 @@ services:
       # API Keys
       - key: RAPIDAPI_KEY
         sync: false
-
-    envSpecificDetails:
-      build:
-        nodeVersion: 20
