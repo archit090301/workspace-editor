@@ -1,0 +1,50 @@
+services:
+  - type: web
+    name: editor-server
+    env: node
+    plan: free
+    buildCommand: "npm install"
+    startCommand: "npm start"
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000 # Render sets automatically, but safe to define
+
+      # Database (AWS RDS)
+      - key: DB_HOST
+        value: database-editor.cpimm2goak5s.us-east-2.rds.amazonaws.com
+      - key: DB_PORT
+        value: 3306
+      - key: DB_USER
+        value: admin
+      - key: DB_PASSWORD
+        sync: false   # ⚠️ enter this in Render dashboard for security
+      - key: DB_NAME
+        value: editor
+
+      # Secrets
+      - key: JWT_SECRET
+        sync: false   # enter manually in Render dashboard
+      - key: SESSION_SECRET
+        sync: false   # enter manually in Render dashboard
+
+      # Frontend (CORS allowed)
+      - key: FRONTEND_URL
+        value: https://workspace-editor.vercel.app
+
+      # Email creds (optional - safer to enter manually)
+      - key: EMAIL_USER
+        value: architcode39@gmail.com
+      - key: EMAIL_PASS
+        sync: false   # enter manually in Render dashboard
+
+      # API Keys
+      - key: RAPIDAPI_KEY
+        sync: false   # enter manually in Render dashboard
+
+    # Lock Node.js version (avoid Node 22 issues)
+    envSpecificDetails:
+      build:
+        nodeVersion: 20

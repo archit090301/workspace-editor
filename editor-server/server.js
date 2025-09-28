@@ -1,31 +1,36 @@
-// server.js
 const express = require("express");
 const cors = require("cors");
 const session = require("express-session");
 const MySQLStore = require("express-mysql-session")(session);
 const passport = require("passport");
-const http = require("http");              // ✅ new
-const { Server } = require("socket.io");   // ✅ new
+const http = require("http");
+const { Server } = require("socket.io");
 require("dotenv").config();
 
 const app = express();
 
-// ---- CORS
+// ---- CORS ----
 const allowedOrigins = [
-  "http://localhost:5173",
-  // add your deployed frontend here when ready:
-  // "https://editor-haov.vercel.app"
+  "http://localhost:5173",                // local dev
+  "https://workspace-editor.vercel.app",  // ✅ your deployed frontend
 ];
+
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS not allowed for origin: ${origin}`));
+      }
+    },
     credentials: true,
   })
 );
 
 app.use(express.json());
 
-// ---- Session Store in MySQL
+// ---- Session Store in MySQL ----
 const sessionStore = new MySQLStore({
   host: process.env.DB_HOST,
   port: 3306,
@@ -37,7 +42,7 @@ const sessionStore = new MySQLStore({
   expiration: 24 * 60 * 60 * 1000, // 1 day
 });
 
-// trust proxy (needed when behind Render/EB load balancer)
+// trust proxy (needed when behind Render/Heroku/EB)
 app.set("trust proxy", 1);
 
 app.use(
@@ -48,35 +53,37 @@ app.use(
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      secure: process.env.NODE_ENV === "production",
+      secure: process.env.NODE_ENV === "production", // only send cookies over HTTPS
     },
   })
 );
 
-// ---- Passport (must come BEFORE routes)
+// ---- Passport (before routes) ----
 require("./config/passport")(passport);
 app.use(passport.initialize());
 app.use(passport.session());
 
-// ---- Routes (AFTER passport)
+// ---- Routes ----
 const authRoutes = require("./routes/auth");
 const projectRoutes = require("./routes/projects");
 const fileRoutes = require("./routes/files");
 const runRoutes = require("./routes/run");
 const friendRoutes = require("./routes/friends");
+const adminRoutes = require("./routes/admin");
 
 app.use("/api", authRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api", fileRoutes);
 app.use("/api/run", runRoutes);
 app.use("/api/friends", friendRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Health check
 app.get("/", (req, res) => res.json({ ok: true }));
 
-// ---- Create HTTP + Socket.IO server
+// ---- HTTP + Socket.IO ----
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -85,13 +92,11 @@ const io = new Server(server, {
   },
 });
 
-const adminRoutes = require("./routes/admin");
-app.use("/api/admin", adminRoutes);
+// Collaborative sockets
+require("./sockets/collab")(io);
 
-
-// ---- Attach collaborative sockets
-require("./sockets/collab")(io);  // ✅ you already created sockets/collab.js earlier
-
-// ---- Start server
+// ---- Start server ----
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`Server running http://localhost:${PORT}`));
+server.listen(PORT, () =>
+  console.log(`🚀 Server running on port ${PORT} [${process.env.NODE_ENV}]`)
+);
