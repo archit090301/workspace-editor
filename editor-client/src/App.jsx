@@ -23,11 +23,12 @@ import AdminDashboard from "./pages/AdminDashboard";
 // Small wrapper to restrict access to admins only
 function AdminOnly() {
   const { user } = useAuth();
-  if (!user || user.role !== "admin") {
-    return <Navigate to="/" replace />; // 🚫 Redirect if not admin
+  if (!user || user.role_id !== 2) {
+    return <Navigate to="/" replace />;
   }
   return <AdminDashboard />;
 }
+
 
 function App() {
   return (
