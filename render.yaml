@@ -1,0 +1,49 @@
+services:
+  - type: web
+    name: editor-server
+    env: node
+    plan: free
+    buildCommand: "cd editor-server && npm install"
+    startCommand: "cd editor-server && npm start"
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+
+      # Database
+      - key: DB_HOST
+        value: database-editor.cpimm2goak5s.us-east-2.rds.amazonaws.com
+      - key: DB_PORT
+        value: 3306
+      - key: DB_USER
+        value: admin
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        value: editor
+
+      # Secrets
+      - key: JWT_SECRET
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+
+      # Frontend URL
+      - key: FRONTEND_URL
+        value: https://workspace-editor.vercel.app
+
+      # Email
+      - key: EMAIL_USER
+        value: architcode39@gmail.com
+      - key: EMAIL_PASS
+        sync: false
+
+      # API Keys
+      - key: RAPIDAPI_KEY
+        sync: false
+
+    envSpecificDetails:
+      build:
+        nodeVersion: 20
