@@ -12,19 +12,19 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 
 import ProtectedRoute from "./components/ProtectedRoute";
-import RedirectIfAuth from "./components/RedirectIfAuth";   // ✅ new import
+import RedirectIfAuth from "./components/RedirectIfAuth";   
 import Files from "./pages/Files";
-import ProjectEditor from "./pages/ProjectEditor"; // ✅ fix here
+import ProjectEditor from "./pages/ProjectEditor";
 import Friends from "./pages/Friends";
 import CollabLobby from "./pages/CollabLobby";
 import CollabRoom from "./pages/CollabRoom";
-import AdminDashboard from "./pages/AdminDashboard"; // ✅ new import
+import AdminDashboard from "./pages/AdminDashboard";
 
 // Small wrapper to restrict access to admins only
 function AdminOnly() {
   const { user } = useAuth();
   if (!user || user.role !== "admin") {
-    return <Navigate to="/" />; // 🚫 Redirect if not admin
+    return <Navigate to="/" replace />; // 🚫 Redirect if not admin
   }
   return <AdminDashboard />;
 }
@@ -35,16 +35,15 @@ function App() {
       <Router>
         <Navbar />
         <Routes>
-          {/* Public routes */}
-          <Route path="/" element={<Home />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password/:token" element={<ResetPassword />} />
-
-          {/* Auth routes (redirect if already logged in) */}
+          {/* Public routes with redirect if logged in */}
           <Route element={<RedirectIfAuth />}>
+            <Route path="/" element={<Home />} /> 
             <Route path="/register" element={<Register />} />
             <Route path="/login" element={<Login />} />
           </Route>
+
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
 
           {/* Protected routes */}  
           <Route element={<ProtectedRoute />}>
@@ -60,7 +59,7 @@ function App() {
             <Route path="/collab/:roomId" element={<CollabRoom />} />
 
             {/* 🔒 Admin-only route */}
-            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin" element={<AdminOnly />} />
           </Route>
         </Routes>
       </Router>

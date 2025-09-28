@@ -19,23 +19,72 @@ export default function Register() {
   };
 
   return (
-    <div style={styles.wrapper}>
+    <div style={styles.wrapper} className="register-wrapper">
+      <style>
+        {`
+          @media (max-width: 768px) {
+            .register-wrapper {
+              flex-direction: column !important; /* ✅ force vertical */
+            }
+            .left-pane {
+              width: 100%;
+              padding: 2rem 1rem;
+              text-align: center;
+              background: linear-gradient(135deg, #667eea, #764ba2);
+            }
+            .left-pane img {
+              width: 100%;
+              max-width: 280px;
+              margin-top: 1rem;
+            }
+            .right-pane {
+              width: 100%;
+              padding: 2rem 1rem;
+              background: #f9fafc;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+            }
+            .card {
+              width: 100%;
+              max-width: 420px;
+              padding: 2rem;
+              margin: 0 auto;
+            }
+          }
+
+          @media (max-width: 480px) {
+            .card h2 {
+              font-size: 1.4rem;
+            }
+            .card p {
+              font-size: 0.85rem;
+            }
+            input,
+            button {
+              font-size: 0.9rem;
+              padding: 0.75rem;
+            }
+          }
+        `}
+      </style>
+
       {/* Left side branding */}
-      <div style={styles.leftPane}>
+      <div style={styles.leftPane} className="left-pane">
         <h1 style={styles.brandTitle}>CodeEditor 🚀</h1>
         <p style={styles.brandSubtitle}>
           Join thousands of developers collaborating in real-time.
         </p>
         <img
-          src="https://illustrations.popsy.co/gray/startup.svg"
+          src="https://www.svgrepo.com/show/475311/team.svg"
           alt="Team Illustration"
           style={styles.illustration}
         />
       </div>
 
       {/* Right side form */}
-      <div style={styles.rightPane}>
-        <div style={styles.card}>
+      <div style={styles.rightPane} className="right-pane">
+        <div style={styles.card} className="card">
           <h2 style={styles.title}>Create an Account</h2>
           <p style={styles.subtitle}>Start coding, collaborating & deploying</p>
 
@@ -90,6 +139,7 @@ const styles = {
     minHeight: "100vh",
     fontFamily: "'Poppins', sans-serif",
     background: "linear-gradient(135deg, #667eea, #764ba2)",
+    width: "100%",
   },
   leftPane: {
     flex: 1,

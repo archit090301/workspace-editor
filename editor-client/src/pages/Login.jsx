@@ -20,23 +20,72 @@ function Login() {
   };
 
   return (
-    <div style={styles.wrapper}>
-      {/* Left Branding Section */}
-      <div style={styles.leftPane}>
+    <div style={styles.wrapper} className="login-wrapper">
+      <style>
+        {`
+          @media (max-width: 768px) {
+            .login-wrapper {
+              flex-direction: column;
+            }
+            .left-pane {
+              width: 100%;
+              padding: 2rem 1rem;
+              text-align: center;
+              background: linear-gradient(135deg, #667eea, #764ba2);
+            }
+            .left-pane img {
+              width: 100%;
+              max-width: 300px;
+              margin-top: 1rem;
+            }
+            .right-pane {
+              width: 100%;
+              padding: 2rem 1rem;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              background: #f9fafc;
+            }
+            .card {
+              width: 100%;
+              max-width: 420px;
+              padding: 2rem;
+              margin: 0 auto;
+            }
+          }
+
+          @media (max-width: 480px) {
+            .card h2 {
+              font-size: 1.4rem;
+            }
+            .card p {
+              font-size: 0.85rem;
+            }
+            input,
+            button {
+              font-size: 0.9rem;
+              padding: 0.75rem;
+            }
+          }
+        `}
+      </style>
+
+      {/* Branding Section */}
+      <div style={styles.leftPane} className="left-pane">
         <h1 style={styles.brandTitle}>CodeEditor 🚀</h1>
         <p style={styles.brandSubtitle}>
           Collaborate, Code & Deploy — all in one place.
         </p>
         <img
-          src="https://illustrations.popsy.co/gray/laptop.svg"
+          src="https://www.svgrepo.com/show/530234/laptop.svg"
           alt="Illustration"
           style={styles.illustration}
         />
       </div>
 
-      {/* Right Form Section */}
-      <div style={styles.rightPane}>
-        <div style={styles.card}>
+      {/* Form Section */}
+      <div style={styles.rightPane} className="right-pane">
+        <div style={styles.card} className="card">
           <h2 style={styles.title}>Welcome Back 👋</h2>
           <p style={styles.subtitle}>Log in to continue to your workspace</p>
 
@@ -88,7 +137,7 @@ const styles = {
     minHeight: "100vh",
     fontFamily: "'Poppins', sans-serif",
     background: "linear-gradient(135deg, #667eea, #764ba2)",
-    color: "#2d2d2d",
+    width: "100%",
   },
   leftPane: {
     flex: 1,
@@ -169,10 +218,6 @@ const styles = {
     cursor: "pointer",
     transition: "transform 0.2s, box-shadow 0.2s",
   },
-  buttonHover: {
-    transform: "translateY(-2px)",
-    boxShadow: "0 6px 12px rgba(0,0,0,0.2)",
-  },
   text: {
     marginTop: "1rem",
     textAlign: "center",
@@ -194,5 +239,6 @@ const styles = {
     textAlign: "center",
   },
 };
+
 
 export default Login;
