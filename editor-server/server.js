@@ -11,9 +11,11 @@ const app = express();
 
 // ---- CORS ----
 const allowedOrigins = [
-  "http://localhost:5173",                // local dev
-  "https://workspace-editor.vercel.app",  // ✅ your deployed frontend
+  "http://localhost:5173",
+  "https://workspace-editor.vercel.app",
+  "https://editor-server-o637.onrender.com"
 ];
+
 
 app.use(
   cors({
