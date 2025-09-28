@@ -1,0 +1,27 @@
+﻿# --- Node ---
+node_modules/
+npm-debug.log*
+yarn-*.log
+pnpm-debug.log*
+
+# --- Env files ---
+.env
+.env.*
+!.env.example
+
+# --- Build outputs ---
+dist/
+build/
+.vite/
+coverage/
+
+# --- OS / IDE junk ---
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
