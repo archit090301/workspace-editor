@@ -88,12 +88,16 @@ socket.on("collab:message", ({ roomId, text }) => {
     // Run code (shared output)
     socket.on("collab:run_code", async ({ roomId, code, language }) => {
       try {
-        const { data } = await axios.post("http://localhost:5000/api/run", {
-          code,
-          language,
-          languageId: mapLanguage(language),
-          stdin: "",
-        });
+        const RUN_API =
+  process.env.RUN_API_URL || "http://localhost:5000/api/run";
+
+const { data } = await axios.post(RUN_API, {
+  code,
+  language,
+  languageId: mapLanguage(language),
+  stdin: "",
+});
+
 
         let out = "";
         if (data.stdout) out += `✅ Output:\n${data.stdout}\n`;
