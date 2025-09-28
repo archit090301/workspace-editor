@@ -1,7 +1,7 @@
 // src/pages/Editor.jsx
 import { useAuth } from "../AuthContext";
 import { Navigate, useParams, useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { javascript } from "@codemirror/lang-javascript";
 import { python } from "@codemirror/lang-python";
@@ -43,17 +43,44 @@ export default function Editor() {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Responsive state
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-
-  // Execution history state
-  const [history, setHistory] = useState([]);
-  const [showHistory, setShowHistory] = useState(false);
-
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  // Execution history state
+  const [history, setHistory] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+
+  // === AI Chat state ===
+  const [showChat, setShowChat] = useState(false);
+  const [chatMessages, setChatMessages] = useState([
+    {
+      id: "sys-hello",
+      role: "assistant",
+      content:
+        "Hi! I’m your AI helper. I can explain code, find bugs, optimize logic, write tests, and draft docstrings. What would you like me to do?"
+    }
+  ]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatting, setChatting] = useState(false);
+  const [includeCode, setIncludeCode] = useState(true);
+  const [includeStdin, setIncludeStdin] = useState(false);
+  const [includeOutput, setIncludeOutput] = useState(true);
+  const [includeFileMeta, setIncludeFileMeta] = useState(true);
+  const chatListRef = useRef(null);
+
+  // CodeMirror ref to insert text at cursor
+  const editorRef = useRef(null);
+
+  const scrollChatToEnd = useCallback(() => {
+    if (chatListRef.current) {
+      chatListRef.current.scrollTop = chatListRef.current.scrollHeight;
+    }
+  }, []);
+  useEffect(() => { scrollChatToEnd(); }, [chatMessages, scrollChatToEnd]);
 
   if (loading) return <p>Loading...</p>;
   if (!user) return <Navigate to="/login" />;
@@ -188,24 +215,89 @@ export default function Editor() {
   };
 
   // Toggle Fullscreen
-  const toggleFullscreen = () => {
-    setIsFullscreen(!isFullscreen);
-  };
+  const toggleFullscreen = () => setIsFullscreen(!isFullscreen);
 
   // Show history
-  // Show history
-const handleShowHistory = async () => {
-  setShowHistory(true);
+  const handleShowHistory = async () => {
+    setShowHistory(true);
+    try {
+      const { data } = await api.get("/run/history?scratchpad=true&limit=10");
+      setHistory(data);
+    } catch {
+      setHistory([]);
+    }
+  };
+
+  // === AI Chat helpers ===
+  const buildContext = () => ({
+    language,
+    fileName: fileName || (fileId ? `File ${fileId}` : "scratchpad"),
+    projectId: projectId || null,
+    code: includeCode ? code : "",
+    stdin: includeStdin ? stdin : "",
+    output: includeOutput ? output : "",
+    history: history?.slice(0, 10) || []
+  });
+
+  const sendChat = async (userText) => {
+  if (!userText?.trim()) return;
+  setChatting(true);
+
+  const newUserMsg = { id: `u-${Date.now()}`, role: "user", content: userText.trim() };
+  setChatMessages((msgs) => [...msgs, newUserMsg]);
+
+  const payload = {
+    messages: [...chatMessages.filter(m => m.role !== "system"), newUserMsg].map(({ role, content }) => ({ role, content })),
+    context: buildContext()
+  };
+
   try {
-    const { data } = await api.get("/run/history?scratchpad=true&limit=10");
-    setHistory(data);
-  } catch {
-    setHistory([]);
+    const resp = await api.post("/ai/chat", payload);
+    const text = resp?.data?.assistant || "⚠️ No response from AI.";
+    setChatMessages((msgs) => [
+      ...msgs,
+      { id: `a-${Date.now()}`, role: "assistant", content: text }
+    ]);
+  } catch (err) {
+    // This should rarely trigger now, since backend always returns 200
+    console.error("Chat error:", err);
+    setChatMessages((msgs) => [
+      ...msgs,
+      { id: `a-${Date.now()}`, role: "assistant", content: "❌ AI request failed (network/server issue)." }
+    ]);
+  } finally {
+    setChatting(false);
   }
 };
 
 
+  const handleQuickAsk = (prompt) => {
+    setShowChat(true);
+    setChatInput(prompt);
+    // optional: auto-send
+  };
+
+  const insertAtCursor = (text) => {
+    const view = editorRef.current;
+    if (!view) return;
+    const { from, to } = view.state.selection.main;
+    view.dispatch({ changes: { from, to, insert: text } });
+    view.focus();
+  };
+
   const editorTheme = user?.preferred_theme_id === 2 ? oneDark : "light";
+
+  // Keyboard: Ctrl/⌘ + Enter in chat
+  const onChatKeyDown = (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      e.preventDefault();
+      if (!chatting) {
+        const txt = chatInput;
+        setChatInput("");
+        sendChat(txt);
+      }
+    }
+  };
 
   return (
     <div style={{ ...styles.wrapper, ...(isFullscreen ? styles.fullscreen : {}) }}>
@@ -216,10 +308,7 @@ const handleShowHistory = async () => {
         alignItems: isMobile ? "flex-start" : "center",
         gap: isMobile ? "0.5rem" : "1rem"
       }}>
-        <span style={{
-          ...styles.fileInfo,
-          marginBottom: isMobile ? "0.5rem" : 0
-        }}>
+        <span style={{ ...styles.fileInfo, marginBottom: isMobile ? "0.5rem" : 0 }}>
           {fileId ? `${fileName} • Project ${projectId}` : "Scratchpad"}
         </span>
         <div style={{
@@ -249,6 +338,9 @@ const handleShowHistory = async () => {
             {isFullscreen ? "🗕 Exit Fullscreen" : "🗖 Fullscreen"}
           </button>
           <button onClick={handleShowHistory} style={styles.btnHistory}>📜 History</button>
+          <button onClick={() => setShowChat(s => !s)} style={styles.btnAI}>
+            {showChat ? "🤖 Hide Chat" : "🤖 AI Chat"}
+          </button>
           {saveMsg && <span style={styles.badge}>{saveMsg}</span>}
         </div>
       </div>
@@ -258,10 +350,12 @@ const handleShowHistory = async () => {
         ...styles.main,
         flexDirection: isMobile ? "column" : "row"
       }}>
+        {/* Editor Pane */}
         <div style={{
           ...styles.editorPane,
-          borderRight: isMobile ? "none" : "1px solid #ddd",
-          borderBottom: isMobile ? "1px solid #ddd" : "none"
+          borderRight: (!isMobile && !isFullscreen && showChat) ? "1px solid #ddd" : (isMobile ? "none" : "1px solid #ddd"),
+          borderBottom: isMobile ? "1px solid #ddd" : "none",
+          flex: (!isFullscreen && showChat && !isMobile) ? 1.6 : 2
         }}>
           {status === "loading" ? (
             <p>Loading...</p>
@@ -272,14 +366,17 @@ const handleShowHistory = async () => {
               theme={editorTheme}
               extensions={getExtensions()}
               onChange={(val) => setCode(val)}
+              onCreateEditor={(view) => { editorRef.current = view; }}
             />
           )}
         </div>
-        
+
+        {/* IO Pane */}
         {!isFullscreen && (
           <div style={{
             ...styles.ioPane,
-            flexDirection: "column"
+            flexDirection: "column",
+            display: showChat && !isMobile ? "none" : "flex" // hide IO when chat is open on desktop? keep or remove; here we keep IO visible on desktop unless you prefer more room for chat
           }}>
             <div style={{ ...styles.ioSection, flex: isMobile ? "none" : 1 }}>
               <label style={styles.ioLabel}>Input</label>
@@ -310,6 +407,100 @@ const handleShowHistory = async () => {
             </div>
           </div>
         )}
+
+        {/* AI Chat Panel */}
+        {!isFullscreen && showChat && (
+          <div style={{
+            ...styles.chatPanel,
+            position: isMobile ? "fixed" : "relative",
+            right: isMobile ? 0 : "auto",
+            top: isMobile ? 0 : "auto",
+            width: isMobile ? "100%" : "32rem",
+            height: isMobile ? "100vh" : "auto",
+            zIndex: 2500,
+          }}>
+            {/* Chat header */}
+            <div style={styles.chatHeader}>
+              <strong>🤖 AI Assistant</strong>
+              <button onClick={() => setShowChat(false)} style={styles.chatCloseBtn}>✖</button>
+            </div>
+
+            {/* Context toggles */}
+            <div style={styles.contextRow}>
+              <label style={styles.ck}><input type="checkbox" checked={includeCode} onChange={() => setIncludeCode(v => !v)} /> Code</label>
+              <label style={styles.ck}><input type="checkbox" checked={includeOutput} onChange={() => setIncludeOutput(v => !v)} /> Output</label>
+              <label style={styles.ck}><input type="checkbox" checked={includeStdin} onChange={() => setIncludeStdin(v => !v)} /> Stdin</label>
+              <label style={styles.ck}><input type="checkbox" checked={includeFileMeta} onChange={() => setIncludeFileMeta(v => !v)} /> Meta</label>
+            </div>
+
+            {/* Quick prompts */}
+            <div style={styles.quickRow}>
+              {[
+                "Explain what this code does.",
+                "Find the bug and fix it.",
+                "Optimize time & space complexity.",
+                "Write unit tests for the core logic.",
+                "Add clear docstrings and comments."
+              ].map((q) => (
+                <button key={q} onClick={() => handleQuickAsk(q)} style={styles.quickBtn}>{q}</button>
+              ))}
+            </div>
+
+            {/* Messages */}
+            <div ref={chatListRef} style={styles.chatList}>
+              {chatMessages.map((m) => (
+                <div key={m.id} style={{
+                  ...styles.chatMsg,
+                  background: m.role === "assistant" ? "#f7f9ff" : "#f1fff6",
+                  borderColor: m.role === "assistant" ? "#dfe7ff" : "#c8f1d6"
+                }}>
+                  <div style={styles.msgTop}>
+                    <span style={styles.msgRole}>{m.role === "assistant" ? "Assistant" : "You"}</span>
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <button
+                        title="Copy"
+                        onClick={() => navigator.clipboard.writeText(m.content)}
+                        style={styles.msgBtn}
+                      >Copy</button>
+                      {m.role === "assistant" && (
+                        <button
+                          title="Insert into editor"
+                          onClick={() => insertAtCursor(m.content)}
+                          style={styles.msgBtn}
+                        >Insert</button>
+                      )}
+                    </div>
+                  </div>
+                  <div style={styles.msgBody}>{m.content}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Composer */}
+            <div style={styles.chatComposer}>
+              <textarea
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={onChatKeyDown}
+                placeholder="Ask the AI… (Ctrl/⌘+Enter to send)"
+                style={styles.chatInput}
+              />
+              <div style={styles.chatActions}>
+                <button
+                  onClick={() => { setChatMessages([{ id: "sys-hello", role: "assistant", content: "Chat cleared." }]); }}
+                  style={styles.clearBtn}
+                  disabled={chatting}
+                >Clear</button>
+                <button
+                  onClick={() => { const txt = chatInput; setChatInput(""); sendChat(txt); }}
+                  style={styles.sendBtn}
+                  disabled={chatting || !chatInput.trim()}
+                >{chatting ? "Sending…" : "Send"}</button>
+              </div>
+              <div style={styles.hint}>Tip: Include code/output toggles above to give the AI more context.</div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Save Modal */}
@@ -333,7 +524,7 @@ const handleShowHistory = async () => {
         </div>
       )}
 
-            {/* History Modal */}
+      {/* History Modal */}
       {showHistory && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalBox}>
@@ -357,7 +548,7 @@ const handleShowHistory = async () => {
                           data.compile_output ||
                           "No output"
                         );
-                        setShowHistory(false); // close modal after loading
+                        setShowHistory(false);
                       } catch (err) {
                         console.error(err);
                         alert("Could not load history entry");
@@ -386,7 +577,6 @@ const handleShowHistory = async () => {
           </div>
         </div>
       )}
-
     </div>
   );
 }
@@ -436,17 +626,147 @@ const styles = {
     padding: "0.4rem 1rem", border: "1px solid #ccc", borderRadius: "6px",
     background: "#f1f1f1", cursor: "pointer", fontWeight: "500",
   },
+  btnAI: {
+    padding: "0.4rem 1rem", border: "1px solid #ccc", borderRadius: "6px",
+    background: "#111", color: "#fff", cursor: "pointer", fontWeight: "600",
+  },
   badge: { marginLeft: "8px", fontSize: "0.85rem", color: "#fff", background: "#222", padding: "0.2rem 0.6rem", borderRadius: "4px" },
-  main: { flex: 1, display: "flex" },
-  editorPane: { flex: 2 },
-  ioPane: { flex: 1, display: "flex", background: "#fafafa" },
+  main: { flex: 1, display: "flex", position: "relative" },
+  editorPane: { flex: 2, minWidth: 0 },
+  ioPane: { flex: 1, display: "flex", background: "#fafafa", minWidth: 0 },
   ioSection: { flex: 1, padding: "1rem", display: "flex", flexDirection: "column" },
   ioLabel: { marginBottom: "0.5rem", fontWeight: "600" },
   textarea: { flex: 1, borderRadius: "6px", border: "1px solid #ccc", padding: "0.5rem", fontFamily: "monospace" },
   output: { flex: 1, borderRadius: "6px", border: "1px solid #ddd", padding: "0.5rem", background: "#1e1e2f", color: "#0f0", fontFamily: "monospace" },
+
+  // Chat styles
+  chatPanel: {
+    background: "#ffffff",
+    borderLeft: "1px solid #e5e7eb",
+    display: "flex",
+    flexDirection: "column",
+    boxShadow: "0 -2px 12px rgba(0,0,0,0.08)",
+  },
+  chatHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "0.75rem 0.9rem",
+    borderBottom: "1px solid #e5e7eb",
+    background: "#f9fafb"
+  },
+  chatCloseBtn: {
+    border: "1px solid #ddd",
+    background: "#fff",
+    borderRadius: "6px",
+    padding: "0.2rem 0.5rem",
+    cursor: "pointer"
+  },
+  contextRow: {
+    display: "flex",
+    gap: "0.75rem",
+    padding: "0.6rem 0.9rem",
+    borderBottom: "1px solid #eee",
+    flexWrap: "wrap"
+  },
+  ck: { fontSize: "0.9rem", display: "flex", alignItems: "center", gap: "0.4rem" },
+  quickRow: {
+    display: "flex",
+    gap: "0.5rem",
+    padding: "0.5rem 0.9rem",
+    borderBottom: "1px solid #f0f0f0",
+    flexWrap: "wrap"
+  },
+  quickBtn: {
+    fontSize: "0.85rem",
+    padding: "0.35rem 0.5rem",
+    border: "1px solid #ddd",
+    background: "#fff",
+    borderRadius: "6px",
+    cursor: "pointer"
+  },
+  chatList: {
+    flex: 1,
+    overflowY: "auto",
+    padding: "0.9rem",
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.6rem",
+    background: "#fff"
+  },
+  chatMsg: {
+    border: "1px solid",
+    borderRadius: "10px",
+    padding: "0.6rem 0.7rem"
+  },
+  msgTop: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: "0.25rem"
+  },
+  msgRole: {
+    fontSize: "0.8rem",
+    opacity: 0.8
+  },
+  msgBtn: {
+    fontSize: "0.75rem",
+    border: "1px solid #ddd",
+    background: "#fff",
+    padding: "0.2rem 0.4rem",
+    borderRadius: "6px",
+    cursor: "pointer"
+  },
+  msgBody: {
+    whiteSpace: "pre-wrap",
+    fontFamily: "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial"
+  },
+  chatComposer: {
+    borderTop: "1px solid #e5e7eb",
+    padding: "0.6rem 0.9rem",
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.5rem",
+    background: "#fafafa"
+  },
+  chatInput: {
+    width: "100%",
+    minHeight: "70px",
+    maxHeight: "160px",
+    resize: "vertical",
+    borderRadius: "8px",
+    border: "1px solid #d1d5db",
+    padding: "0.6rem",
+    fontFamily: "inherit"
+  },
+  chatActions: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: "0.6rem"
+  },
+  clearBtn: {
+    border: "1px solid #ddd",
+    background: "#fff",
+    borderRadius: "6px",
+    padding: "0.4rem 0.8rem",
+    cursor: "pointer"
+  },
+  sendBtn: {
+    border: "none",
+    background: "linear-gradient(90deg,#43e97b,#38f9d7)",
+    color: "#fff",
+    borderRadius: "8px",
+    padding: "0.45rem 1rem",
+    cursor: "pointer",
+    fontWeight: 600
+  },
+  hint: { fontSize: "0.75rem", color: "#6b7280" },
+
+  // Modals
   modalOverlay: {
     position: "fixed", top: 0, left: 0, width: "100%", height: "100%",
     background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center",
+    zIndex: 3000
   },
   modalBox: { background: "#fff", padding: "2rem", borderRadius: "12px", width: "400px", boxShadow: "0 8px 24px rgba(0,0,0,0.3)" },
   input: { width: "100%", padding: "0.6rem", borderRadius: "6px", border: "1px solid #ccc", marginBottom: "1rem" },

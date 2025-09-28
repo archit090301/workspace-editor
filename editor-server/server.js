@@ -74,6 +74,9 @@ const fileRoutes = require("./routes/files");
 const runRoutes = require("./routes/run");
 const friendRoutes = require("./routes/friends");
 const adminRoutes = require("./routes/admin");
+const aiRoutes = require("./routes/ai");
+
+
 
 app.use("/api", authRoutes);
 app.use("/api/projects", projectRoutes);
@@ -81,6 +84,7 @@ app.use("/api", fileRoutes);
 app.use("/api/run", runRoutes);
 app.use("/api/friends", friendRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/ai", aiRoutes);
 
 // Health check
 app.get("/", (req, res) => res.json({ ok: true }));
