@@ -87,30 +87,37 @@ socket.on("collab:message", ({ roomId, text }) => {
 
     // Run code (shared output)
     socket.on("collab:run_code", async ({ roomId, code, language }) => {
-      try {
-        const RUN_API =
-  process.env.RUN_API_URL || "http://localhost:5000/api/run";
+  try {
+    const judge0Map = { javascript: 63, python: 71, cpp: 54, java: 62 };
 
-const { data } = await axios.post(RUN_API, {
-  code,
-  language,
-  languageId: mapLanguage(language),
-  stdin: "",
+    const { data } = await axios.post(
+      "https://judge0-ce.p.rapidapi.com/submissions?base64_encoded=false&wait=true",
+      {
+        source_code: code,
+        language_id: judge0Map[language] || 63,
+        stdin: "",
+      },
+      {
+        headers: {
+          "X-RapidAPI-Key": process.env.RAPIDAPI_KEY,
+          "X-RapidAPI-Host": "judge0-ce.p.rapidapi.com",
+        },
+      }
+    );
+
+    let out = "";
+    if (data.stdout) out += `✅ Output:\n${data.stdout}\n`;
+    if (data.stderr) out += `⚠️ Runtime Error:\n${data.stderr}\n`;
+    if (data.compile_output) out += `❌ Compilation Error:\n${data.compile_output}\n`;
+    if (!out.trim()) out = "No output";
+
+    io.to(roomId).emit("collab:run_result", { output: out });
+  } catch (err) {
+    console.error("Run failed:", err.message);
+    io.to(roomId).emit("collab:run_result", { output: "Execution failed ❌" });
+  }
 });
 
-
-        let out = "";
-        if (data.stdout) out += `✅ Output:\n${data.stdout}\n`;
-        if (data.stderr) out += `⚠️ Runtime Error:\n${data.stderr}\n`;
-        if (data.compile_output) out += `❌ Compilation Error:\n${data.compile_output}\n`;
-        if (!out.trim()) out = "No output";
-
-        io.to(roomId).emit("collab:run_result", { output: out });
-      } catch (err) {
-        console.error("Run failed:", err.message);
-        io.to(roomId).emit("collab:run_result", { output: "Execution failed ❌" });
-      }
-    });
 
     // Handle disconnect
     socket.on("disconnect", () => {
