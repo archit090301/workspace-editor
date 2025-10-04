@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import Navbar from "./components/Navbar";     
+import Navbar from "./components/Navbar";
 import { AuthProvider, useAuth } from "./AuthContext";
 
 import Home from "./pages/Home";
@@ -12,13 +12,16 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 
 import ProtectedRoute from "./components/ProtectedRoute";
-import RedirectIfAuth from "./components/RedirectIfAuth";   
+import RedirectIfAuth from "./components/RedirectIfAuth";
 import Files from "./pages/Files";
 import ProjectEditor from "./pages/ProjectEditor";
 import Friends from "./pages/Friends";
 import CollabLobby from "./pages/CollabLobby";
 import CollabRoom from "./pages/CollabRoom";
 import AdminDashboard from "./pages/AdminDashboard";
+
+// 🆕 Import the new popup component
+import InvitePopup from "./components/InvitePopup";
 
 // Small wrapper to restrict access to admins only
 function AdminOnly() {
@@ -29,7 +32,6 @@ function AdminOnly() {
   return <AdminDashboard />;
 }
 
-
 function App() {
   return (
     <AuthProvider>
@@ -38,7 +40,7 @@ function App() {
         <Routes>
           {/* Public routes with redirect if logged in */}
           <Route element={<RedirectIfAuth />}>
-            <Route path="/" element={<Home />} /> 
+            <Route path="/" element={<Home />} />
             <Route path="/register" element={<Register />} />
             <Route path="/login" element={<Login />} />
           </Route>
@@ -46,7 +48,7 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
 
-          {/* Protected routes */}  
+          {/* Protected routes */}
           <Route element={<ProtectedRoute />}>
             <Route path="/projects" element={<Projects />} />
             <Route path="/editor" element={<Editor />} /> {/* blank editor */}
@@ -63,6 +65,9 @@ function App() {
             <Route path="/admin" element={<AdminOnly />} />
           </Route>
         </Routes>
+
+        {/* 🆕 Global invite listener (appears on any route) */}
+        <InvitePopup />
       </Router>
     </AuthProvider>
   );

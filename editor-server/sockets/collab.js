@@ -3,10 +3,43 @@ const { v4: uuid } = require("uuid");
 const axios = require("axios");
 
 const rooms = {};
+const userSockets = {}; // 🆕 userId -> Set(socket.id)
 
 module.exports = function attachCollab(io) {
   io.on("connection", (socket) => {
     console.log("🔌 Connected:", socket.id);
+
+    // 🆕 Register user on connection (from frontend AuthContext)
+    socket.on("auth:register", ({ userId, username }) => {
+      socket.data.userId = userId;
+      socket.data.username = username;
+
+      if (!userSockets[userId]) userSockets[userId] = new Set();
+      userSockets[userId].add(socket.id);
+
+      console.log(`🟢 Registered ${username} (${userId}) on ${socket.id}`);
+    });
+
+    // 🆕 Invite a friend to join a collab room
+    socket.on("collab:invite_friend", ({ fromUser, toUserId, roomId }) => {
+      const targets = userSockets[toUserId];
+      if (!targets) {
+        console.log(`⚠️ Friend ${toUserId} is offline, invite skipped`);
+        return;
+      }
+
+      for (const sid of targets) {
+        io.to(sid).emit("collab:invite", {
+          fromUser,
+          roomId,
+          time: new Date().toISOString(),
+        });
+      }
+
+      console.log(`💌 ${fromUser} invited ${toUserId} to join room ${roomId}`);
+    });
+
+    // ------------------ ROOM HANDLING ------------------
 
     // Create new room
     socket.on("collab:create_room", (_, cb) => {
@@ -17,6 +50,7 @@ module.exports = function attachCollab(io) {
         users: {},
       };
       cb && cb({ roomId });
+      console.log(`🆕 Room created: ${roomId}`);
     });
 
     // Join room
@@ -29,11 +63,9 @@ module.exports = function attachCollab(io) {
       socket.join(roomId);
       rooms[roomId].users[socket.id] = username || "user";
 
-      // save on socket for cleanup
       socket.data.roomId = roomId;
       socket.data.username = username || "user";
 
-      // send current state to joining client
       cb &&
         cb({
           ok: true,
@@ -44,11 +76,12 @@ module.exports = function attachCollab(io) {
           },
         });
 
-      // broadcast updated user list to all in room
       io.to(roomId).emit("collab:user_list", Object.values(rooms[roomId].users));
+      console.log(`👥 ${username} joined room ${roomId}`);
     });
 
-    // Code changes
+    // ------------------ CODE HANDLING ------------------
+
     socket.on("collab:code_change", ({ roomId, code }) => {
       const room = rooms[roomId];
       if (!room) return;
@@ -56,7 +89,6 @@ module.exports = function attachCollab(io) {
       socket.to(roomId).emit("collab:code_change", { code });
     });
 
-    // Language changes
     socket.on("collab:language_change", ({ roomId, language }) => {
       const room = rooms[roomId];
       if (!room) return;
@@ -64,76 +96,84 @@ module.exports = function attachCollab(io) {
       io.to(roomId).emit("collab:language_change", { language });
     });
 
-    // Cursor presence
     socket.on("collab:cursor", ({ roomId, cursor }) => {
       socket.to(roomId).emit("collab:cursor", { socketId: socket.id, cursor });
     });
 
-    // sockets/collab.js (inside io.on("connection"))
-socket.on("collab:message", ({ roomId, text }) => {
-  const { username } = socket.data || {};
-  if (!roomId || !rooms[roomId]) return;
+    // ------------------ CHAT HANDLING ------------------
 
-  const msg = {
-    username: username || "user",
-    text,
-    time: new Date().toISOString(),
-  };
-
-  // Send to everyone in room
-  io.to(roomId).emit("collab:message", msg);
-});
-
-
-    // Run code (shared output)
-    socket.on("collab:run_code", async ({ roomId, code, language }) => {
-  try {
-    const judge0Map = { javascript: 63, python: 71, cpp: 54, java: 62 };
-
-    const { data } = await axios.post(
-      "https://judge0-ce.p.rapidapi.com/submissions?base64_encoded=false&wait=true",
-      {
-        source_code: code,
-        language_id: judge0Map[language] || 63,
-        stdin: "",
-      },
-      {
-        headers: {
-          "X-RapidAPI-Key": process.env.RAPIDAPI_KEY,
-          "X-RapidAPI-Host": "judge0-ce.p.rapidapi.com",
-        },
-      }
-    );
-
-    let out = "";
-    if (data.stdout) out += `✅ Output:\n${data.stdout}\n`;
-    if (data.stderr) out += `⚠️ Runtime Error:\n${data.stderr}\n`;
-    if (data.compile_output) out += `❌ Compilation Error:\n${data.compile_output}\n`;
-    if (!out.trim()) out = "No output";
-
-    io.to(roomId).emit("collab:run_result", { output: out });
-  } catch (err) {
-    console.error("Run failed:", err.message);
-    io.to(roomId).emit("collab:run_result", { output: "Execution failed ❌" });
-  }
-});
-
-
-    // Handle disconnect
-    socket.on("disconnect", () => {
-      const { roomId, username } = socket.data || {};
+    socket.on("collab:message", ({ roomId, text }) => {
+      const { username } = socket.data || {};
       if (!roomId || !rooms[roomId]) return;
 
-      delete rooms[roomId].users[socket.id];
+      const msg = {
+        username: username || "user",
+        text,
+        time: new Date().toISOString(),
+      };
 
-      io.to(roomId).emit("collab:user_list", Object.values(rooms[roomId].users));
+      io.to(roomId).emit("collab:message", msg);
+    });
 
-      if (Object.keys(rooms[roomId].users).length === 0) {
-        delete rooms[roomId];
-        console.log(`🗑 Room ${roomId} deleted (empty)`);
-      } else {
-        console.log(`👋 ${username} left room ${roomId}`);
+    // ------------------ RUN CODE HANDLING ------------------
+
+    socket.on("collab:run_code", async ({ roomId, code, language }) => {
+      try {
+        const judge0Map = { javascript: 63, python: 71, cpp: 54, java: 62 };
+
+        const { data } = await axios.post(
+          "https://judge0-ce.p.rapidapi.com/submissions?base64_encoded=false&wait=true",
+          {
+            source_code: code,
+            language_id: judge0Map[language] || 63,
+            stdin: "",
+          },
+          {
+            headers: {
+              "X-RapidAPI-Key": process.env.RAPIDAPI_KEY,
+              "X-RapidAPI-Host": "judge0-ce.p.rapidapi.com",
+            },
+          }
+        );
+
+        let out = "";
+        if (data.stdout) out += `✅ Output:\n${data.stdout}\n`;
+        if (data.stderr) out += `⚠️ Runtime Error:\n${data.stderr}\n`;
+        if (data.compile_output) out += `❌ Compilation Error:\n${data.compile_output}\n`;
+        if (!out.trim()) out = "No output";
+
+        io.to(roomId).emit("collab:run_result", { output: out });
+      } catch (err) {
+        console.error("Run failed:", err.message);
+        io.to(roomId).emit("collab:run_result", { output: "Execution failed ❌" });
       }
+    });
+
+    // ------------------ DISCONNECT HANDLING ------------------
+
+    socket.on("disconnect", () => {
+      const { roomId, username, userId } = socket.data || {};
+
+      // Cleanup user socket mapping
+      if (userId && userSockets[userId]) {
+        userSockets[userId].delete(socket.id);
+        if (userSockets[userId].size === 0) delete userSockets[userId];
+      }
+
+      // Remove from room if inside
+      if (roomId && rooms[roomId]) {
+        delete rooms[roomId].users[socket.id];
+        io.to(roomId).emit("collab:user_list", Object.values(rooms[roomId].users));
+
+        if (Object.keys(rooms[roomId].users).length === 0) {
+          delete rooms[roomId];
+          console.log(`🗑 Room ${roomId} deleted (empty)`);
+        } else {
+          console.log(`👋 ${username} left room ${roomId}`);
+        }
+      }
+
+      console.log(`🔴 Socket disconnected: ${socket.id}`);
     });
   });
 };

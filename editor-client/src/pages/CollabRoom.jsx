@@ -1,4 +1,3 @@
-// src/pages/CollabRoom.jsx
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { socket } from "../socket";
@@ -10,6 +9,7 @@ import { cpp } from "@codemirror/lang-cpp";
 import { oneDark } from "@codemirror/theme-one-dark";
 import debounce from "lodash.debounce";
 import { useAuth } from "../AuthContext";
+import api from "../api"; // 🆕 added for fetching friends
 
 const langExt = { javascript: javascript(), python: python(), java: java(), cpp: cpp() };
 
@@ -25,9 +25,25 @@ export default function CollabRoom() {
   const [messages, setMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [output, setOutput] = useState(""); // ✅ run result
+  const [friends, setFriends] = useState([]); // 🆕 friends list
 
   const selfUpdating = useRef(false);
 
+  // 🆕 Load accepted friends when page loads
+  useEffect(() => {
+    const loadFriends = async () => {
+      try {
+        const res = await api.get("/friends");
+        const accepted = res.data.filter((f) => f.status === "accepted");
+        setFriends(accepted);
+      } catch {
+        console.warn("Failed to load friends list");
+      }
+    };
+    loadFriends();
+  }, []);
+
+  // -------------------- SOCKET HANDLING --------------------
   useEffect(() => {
     if (!roomId) return;
 
@@ -51,7 +67,7 @@ export default function CollabRoom() {
     socket.on("collab:language_change", ({ language }) => setLanguage(language));
     socket.on("collab:user_list", (list) => setUsers(list));
     socket.on("collab:message", (msg) => setMessages((prev) => [...prev, msg]));
-    socket.on("collab:run_result", ({ output }) => setOutput(output)); // ✅ listen for run
+    socket.on("collab:run_result", ({ output }) => setOutput(output));
 
     return () => {
       socket.off("collab:code_change");
@@ -62,6 +78,7 @@ export default function CollabRoom() {
     };
   }, [roomId, user?.username]);
 
+  // -------------------- CODE EDITOR --------------------
   const emitChange = useRef(
     debounce((nextCode) => socket.emit("collab:code_change", { roomId, code: nextCode }), 80)
   ).current;
@@ -77,20 +94,33 @@ export default function CollabRoom() {
     socket.emit("collab:language_change", { roomId, language: lang });
   };
 
+  // -------------------- CHAT --------------------
   const sendMessage = () => {
     if (!chatInput.trim()) return;
     socket.emit("collab:message", { roomId, text: chatInput.trim() });
     setChatInput("");
   };
 
-  // ✅ run code
+  // -------------------- CODE EXECUTION --------------------
   const runCode = () => {
     socket.emit("collab:run_code", { roomId, code, language });
     setOutput("Running...");
   };
 
+  // -------------------- INVITE FRIEND --------------------
+  const inviteFriend = (friendId) => {
+    if (!friendId) return;
+    socket.emit("collab:invite_friend", {
+      fromUser: user.username,
+      toUserId: friendId,
+      roomId,
+    });
+    alert("Invitation sent ✅");
+  };
+
   const leave = () => navigate("/collab");
 
+  // -------------------- UI --------------------
   return (
     <div style={{ display: "flex", height: "90vh" }}>
       {/* Main editor */}
@@ -99,17 +129,37 @@ export default function CollabRoom() {
           <h3 style={{ margin: 0 }}>Room: {roomId}</h3>
           <span style={{ opacity: 0.7 }}>{status}</span>
           <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+            {/* 🆕 Invite dropdown */}
+            <select onChange={(e) => inviteFriend(e.target.value)} defaultValue="" style={select}>
+              <option value="" disabled>
+                Invite Friend…
+              </option>
+              {friends.map((f) => (
+                <option key={f.user_id} value={f.user_id}>
+                  {f.username}
+                </option>
+              ))}
+            </select>
+
             <select value={language} onChange={onLanguageChange} style={select}>
               <option value="javascript">JavaScript</option>
               <option value="python">Python</option>
               <option value="java">Java</option>
               <option value="cpp">C++</option>
             </select>
-            <button onClick={runCode} style={btnPrimary}>Run ▶</button>
-            <button onClick={() => navigator.clipboard.writeText(roomId)} style={btnSecondary}>
+
+            <button onClick={runCode} style={btnPrimary}>
+              Run ▶
+            </button>
+            <button
+              onClick={() => navigator.clipboard.writeText(roomId)}
+              style={btnSecondary}
+            >
               Copy Code
             </button>
-            <button onClick={leave} style={btnDanger}>Leave</button>
+            <button onClick={leave} style={btnDanger}>
+              Leave
+            </button>
           </div>
         </div>
 
@@ -129,7 +179,14 @@ export default function CollabRoom() {
       </div>
 
       {/* Chat sidebar */}
-      <div style={{ flex: 1, borderLeft: "1px solid #ddd", display: "flex", flexDirection: "column" }}>
+      <div
+        style={{
+          flex: 1,
+          borderLeft: "1px solid #ddd",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
         <div style={{ padding: "0.5rem", borderBottom: "1px solid #ddd" }}>
           <strong>👥 Users:</strong> {users.join(", ")}
         </div>
@@ -147,15 +204,50 @@ export default function CollabRoom() {
             placeholder="Type a message..."
             style={{ flex: 1, padding: "0.5rem" }}
           />
-          <button onClick={sendMessage} style={btnPrimary}>Send</button>
+          <button onClick={sendMessage} style={btnPrimary}>
+            Send
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-const select = { padding: "0.5rem", borderRadius: 8, border: "1px solid #ccc" };
-const btnSecondary = { padding: "0.5rem 0.9rem", borderRadius: 8, border: "1px solid #ccc", background: "#f6f6f6", cursor: "pointer" };
-const btnDanger = { padding: "0.5rem 0.9rem", borderRadius: 8, border: "none", background: "#ef5350", color: "#fff", cursor: "pointer" };
-const btnPrimary = { padding: "0.5rem 0.9rem", borderRadius: 8, border: "none", background: "#4e54c8", color: "#fff", cursor: "pointer" };
-const outputBox = { marginTop: "1rem", background: "#111", color: "#0f0", padding: "1rem", borderRadius: 8, height: "20vh", overflowY: "auto" };
+// -------------------- STYLES --------------------
+const select = {
+  padding: "0.5rem",
+  borderRadius: 8,
+  border: "1px solid #ccc",
+};
+const btnSecondary = {
+  padding: "0.5rem 0.9rem",
+  borderRadius: 8,
+  border: "1px solid #ccc",
+  background: "#f6f6f6",
+  cursor: "pointer",
+};
+const btnDanger = {
+  padding: "0.5rem 0.9rem",
+  borderRadius: 8,
+  border: "none",
+  background: "#ef5350",
+  color: "#fff",
+  cursor: "pointer",
+};
+const btnPrimary = {
+  padding: "0.5rem 0.9rem",
+  borderRadius: 8,
+  border: "none",
+  background: "#4e54c8",
+  color: "#fff",
+  cursor: "pointer",
+};
+const outputBox = {
+  marginTop: "1rem",
+  background: "#111",
+  color: "#0f0",
+  padding: "1rem",
+  borderRadius: 8,
+  height: "20vh",
+  overflowY: "auto",
+};
