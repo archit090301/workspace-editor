@@ -1,15 +1,13 @@
-// sockets/collab.js
 const { v4: uuid } = require("uuid");
 const axios = require("axios");
 
 const rooms = {};
-const userSockets = {}; // 🆕 userId -> Set(socket.id)
+const userSockets = {}; 
 
 module.exports = function attachCollab(io) {
   io.on("connection", (socket) => {
     console.log("🔌 Connected:", socket.id);
 
-    // 🆕 Register user on connection (from frontend AuthContext)
     socket.on("auth:register", ({ userId, username }) => {
       socket.data.userId = userId;
       socket.data.username = username;
@@ -20,7 +18,6 @@ module.exports = function attachCollab(io) {
       console.log(`🟢 Registered ${username} (${userId}) on ${socket.id}`);
     });
 
-    // 🆕 Invite a friend to join a collab room
     socket.on("collab:invite_friend", ({ fromUser, toUserId, roomId }) => {
       const targets = userSockets[toUserId];
       if (!targets) {
@@ -39,12 +36,9 @@ module.exports = function attachCollab(io) {
       console.log(`💌 ${fromUser} invited ${toUserId} to join room ${roomId}`);
     });
 
-    // ------------------ ROOM HANDLING ------------------
-
-    // Create new room
     socket.on("collab:create_room", (_, cb) => {
       const roomId = uuid().slice(0, 8);
-      rooms[roomId] = rooms[roomId] || {
+      rooms[roomId] = {
         code: "// Start collaborating…",
         language: "javascript",
         users: {},
@@ -53,7 +47,6 @@ module.exports = function attachCollab(io) {
       console.log(`🆕 Room created: ${roomId}`);
     });
 
-    // Join room
     socket.on("collab:join_room", ({ roomId, username }, cb) => {
       if (!rooms[roomId]) {
         cb && cb({ ok: false, error: "Room not found" });
@@ -80,8 +73,6 @@ module.exports = function attachCollab(io) {
       console.log(`👥 ${username} joined room ${roomId}`);
     });
 
-    // ------------------ CODE HANDLING ------------------
-
     socket.on("collab:code_change", ({ roomId, code }) => {
       const room = rooms[roomId];
       if (!room) return;
@@ -96,11 +87,20 @@ module.exports = function attachCollab(io) {
       io.to(roomId).emit("collab:language_change", { language });
     });
 
-    socket.on("collab:cursor", ({ roomId, cursor }) => {
-      socket.to(roomId).emit("collab:cursor", { socketId: socket.id, cursor });
+    socket.on("collab:cursor", ({ roomId, position }) => {
+      socket.to(roomId).emit("collab:cursor", {
+        socketId: socket.id,
+        username: socket.data.username,
+        position,
+      });
     });
 
-    // ------------------ CHAT HANDLING ------------------
+    socket.on("collab:typing", ({ roomId, isTyping }) => {
+      socket.to(roomId).emit("collab:typing", {
+        username: socket.data.username,
+        isTyping,
+      });
+    });
 
     socket.on("collab:message", ({ roomId, text }) => {
       const { username } = socket.data || {};
@@ -114,8 +114,6 @@ module.exports = function attachCollab(io) {
 
       io.to(roomId).emit("collab:message", msg);
     });
-
-    // ------------------ RUN CODE HANDLING ------------------
 
     socket.on("collab:run_code", async ({ roomId, code, language }) => {
       try {
@@ -139,7 +137,8 @@ module.exports = function attachCollab(io) {
         let out = "";
         if (data.stdout) out += `✅ Output:\n${data.stdout}\n`;
         if (data.stderr) out += `⚠️ Runtime Error:\n${data.stderr}\n`;
-        if (data.compile_output) out += `❌ Compilation Error:\n${data.compile_output}\n`;
+        if (data.compile_output)
+          out += `❌ Compilation Error:\n${data.compile_output}\n`;
         if (!out.trim()) out = "No output";
 
         io.to(roomId).emit("collab:run_result", { output: out });
@@ -149,18 +148,14 @@ module.exports = function attachCollab(io) {
       }
     });
 
-    // ------------------ DISCONNECT HANDLING ------------------
-
     socket.on("disconnect", () => {
       const { roomId, username, userId } = socket.data || {};
 
-      // Cleanup user socket mapping
       if (userId && userSockets[userId]) {
         userSockets[userId].delete(socket.id);
         if (userSockets[userId].size === 0) delete userSockets[userId];
       }
 
-      // Remove from room if inside
       if (roomId && rooms[roomId]) {
         delete rooms[roomId].users[socket.id];
         io.to(roomId).emit("collab:user_list", Object.values(rooms[roomId].users));
@@ -178,7 +173,6 @@ module.exports = function attachCollab(io) {
   });
 };
 
-// Helper: frontend language → Judge0 ID
 function mapLanguage(lang) {
   const judge0LanguageMap = {
     javascript: 63,

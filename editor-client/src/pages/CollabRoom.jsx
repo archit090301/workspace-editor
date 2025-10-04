@@ -9,9 +9,16 @@ import { cpp } from "@codemirror/lang-cpp";
 import { oneDark } from "@codemirror/theme-one-dark";
 import debounce from "lodash.debounce";
 import { useAuth } from "../AuthContext";
-import api from "../api"; // 🆕 added for fetching friends
+import api from "../api";
 
-const langExt = { javascript: javascript(), python: python(), java: java(), cpp: cpp() };
+const langExt = {
+  javascript: javascript(),
+  python: python(),
+  java: java(),
+  cpp: cpp(),
+};
+
+const cursorColors = ["#ff5555", "#50fa7b", "#8be9fd", "#ffb86c", "#bd93f9"];
 
 export default function CollabRoom() {
   const { roomId } = useParams();
@@ -24,12 +31,15 @@ export default function CollabRoom() {
   const [users, setUsers] = useState([]);
   const [messages, setMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
-  const [output, setOutput] = useState(""); // ✅ run result
-  const [friends, setFriends] = useState([]); // 🆕 friends list
+  const [output, setOutput] = useState("");
+  const [friends, setFriends] = useState([]);
+
+  const [cursors, setCursors] = useState({});
+  const [typingUsers, setTypingUsers] = useState([]);
 
   const selfUpdating = useRef(false);
+  const editorRef = useRef(null);
 
-  // 🆕 Load accepted friends when page loads
   useEffect(() => {
     const loadFriends = async () => {
       try {
@@ -37,13 +47,12 @@ export default function CollabRoom() {
         const accepted = res.data.filter((f) => f.status === "accepted");
         setFriends(accepted);
       } catch {
-        console.warn("Failed to load friends list");
+        console.warn("Failed to load friends");
       }
     };
     loadFriends();
   }, []);
 
-  // -------------------- SOCKET HANDLING --------------------
   useEffect(() => {
     if (!roomId) return;
 
@@ -69,16 +78,30 @@ export default function CollabRoom() {
     socket.on("collab:message", (msg) => setMessages((prev) => [...prev, msg]));
     socket.on("collab:run_result", ({ output }) => setOutput(output));
 
+    // 🧑‍🤝‍🧑 Presence: cursors & typing
+    socket.on("collab:cursor", ({ socketId, username, position }) => {
+      setCursors((prev) => ({ ...prev, [socketId]: { username, position } }));
+    });
+
+    socket.on("collab:typing", ({ username, isTyping }) => {
+      setTypingUsers((prev) =>
+        isTyping
+          ? [...new Set([...prev, username])]
+          : prev.filter((u) => u !== username)
+      );
+    });
+
     return () => {
       socket.off("collab:code_change");
       socket.off("collab:language_change");
       socket.off("collab:user_list");
       socket.off("collab:message");
       socket.off("collab:run_result");
+      socket.off("collab:cursor");
+      socket.off("collab:typing");
     };
   }, [roomId, user?.username]);
 
-  // -------------------- CODE EDITOR --------------------
   const emitChange = useRef(
     debounce((nextCode) => socket.emit("collab:code_change", { roomId, code: nextCode }), 80)
   ).current;
@@ -86,6 +109,17 @@ export default function CollabRoom() {
   const onChange = (next) => {
     setCode(next);
     if (!selfUpdating.current) emitChange(next);
+
+    socket.emit("collab:typing", { roomId, isTyping: true });
+    clearTimeout(window._typingTimeout);
+    window._typingTimeout = setTimeout(() => {
+      socket.emit("collab:typing", { roomId, isTyping: false });
+    }, 1500);
+  };
+
+  const onUpdate = (viewUpdate) => {
+    const pos = viewUpdate.state.selection.main.head;
+    socket.emit("collab:cursor", { roomId, position: pos });
   };
 
   const onLanguageChange = (e) => {
@@ -94,20 +128,17 @@ export default function CollabRoom() {
     socket.emit("collab:language_change", { roomId, language: lang });
   };
 
-  // -------------------- CHAT --------------------
   const sendMessage = () => {
     if (!chatInput.trim()) return;
     socket.emit("collab:message", { roomId, text: chatInput.trim() });
     setChatInput("");
   };
 
-  // -------------------- CODE EXECUTION --------------------
   const runCode = () => {
     socket.emit("collab:run_code", { roomId, code, language });
     setOutput("Running...");
   };
 
-  // -------------------- INVITE FRIEND --------------------
   const inviteFriend = (friendId) => {
     if (!friendId) return;
     socket.emit("collab:invite_friend", {
@@ -120,16 +151,14 @@ export default function CollabRoom() {
 
   const leave = () => navigate("/collab");
 
-  // -------------------- UI --------------------
   return (
-    <div style={{ display: "flex", height: "90vh" }}>
-      {/* Main editor */}
+    <div style={{ display: "flex", height: "90vh", position: "relative" }}>
+      {/* MAIN EDITOR */}
       <div style={{ flex: 3, padding: "1rem", display: "flex", flexDirection: "column" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
           <h3 style={{ margin: 0 }}>Room: {roomId}</h3>
           <span style={{ opacity: 0.7 }}>{status}</span>
           <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-            {/* 🆕 Invite dropdown */}
             <select onChange={(e) => inviteFriend(e.target.value)} defaultValue="" style={select}>
               <option value="" disabled>
                 Invite Friend…
@@ -163,22 +192,45 @@ export default function CollabRoom() {
           </div>
         </div>
 
-        <CodeMirror
-          value={code}
-          height="60vh"
-          theme={oneDark}
-          extensions={[langExt[language] || javascript()]}
-          onChange={onChange}
-        />
+        <div style={{ position: "relative" }}>
+          <CodeMirror
+            ref={editorRef}
+            value={code}
+            height="60vh"
+            theme={oneDark}
+            extensions={[langExt[language] || javascript()]}
+            onChange={onChange}
+            onUpdate={onUpdate}
+          />
 
-        {/* ✅ Output panel */}
+          {Object.entries(cursors).map(([id, { username, position }], index) => (
+            <div
+              key={id}
+              style={{
+                position: "absolute",
+                top: `${position * 0.25}px`,
+                left: "4px",
+                width: "2px",
+                height: "1em",
+                background: cursorColors[index % cursorColors.length],
+              }}
+              title={username}
+            ></div>
+          ))}
+        </div>
+
+        {typingUsers.length > 0 && (
+          <div style={{ color: "#aaa", fontStyle: "italic", marginTop: "4px" }}>
+            {typingUsers.join(", ")} {typingUsers.length === 1 ? "is" : "are"} typing...
+          </div>
+        )}
+
         <div style={outputBox}>
           <h4>Output</h4>
           <pre>{output}</pre>
         </div>
       </div>
 
-      {/* Chat sidebar */}
       <div
         style={{
           flex: 1,
@@ -190,6 +242,7 @@ export default function CollabRoom() {
         <div style={{ padding: "0.5rem", borderBottom: "1px solid #ddd" }}>
           <strong>👥 Users:</strong> {users.join(", ")}
         </div>
+
         <div style={{ flex: 1, overflowY: "auto", padding: "0.5rem" }}>
           {messages.map((m, i) => (
             <div key={i} style={{ marginBottom: "0.5rem" }}>
@@ -197,6 +250,7 @@ export default function CollabRoom() {
             </div>
           ))}
         </div>
+
         <div style={{ display: "flex", borderTop: "1px solid #ddd" }}>
           <input
             value={chatInput}
@@ -213,12 +267,12 @@ export default function CollabRoom() {
   );
 }
 
-// -------------------- STYLES --------------------
 const select = {
   padding: "0.5rem",
   borderRadius: 8,
   border: "1px solid #ccc",
 };
+
 const btnSecondary = {
   padding: "0.5rem 0.9rem",
   borderRadius: 8,
@@ -226,6 +280,7 @@ const btnSecondary = {
   background: "#f6f6f6",
   cursor: "pointer",
 };
+
 const btnDanger = {
   padding: "0.5rem 0.9rem",
   borderRadius: 8,
@@ -234,6 +289,7 @@ const btnDanger = {
   color: "#fff",
   cursor: "pointer",
 };
+
 const btnPrimary = {
   padding: "0.5rem 0.9rem",
   borderRadius: 8,
@@ -242,6 +298,7 @@ const btnPrimary = {
   color: "#fff",
   cursor: "pointer",
 };
+
 const outputBox = {
   marginTop: "1rem",
   background: "#111",
