@@ -1,10 +1,10 @@
-const { v4: uuid } = require("uuid");
-const axios = require("axios");
+import { v4 as uuid } from "uuid";
+import axios from "axios";
 
 const rooms = {};
 const userSockets = {}; 
 
-module.exports = function attachCollab(io) {
+export default function attachCollab(io) {
   io.on("connection", (socket) => {
     console.log("🔌 Connected:", socket.id);
 
@@ -144,7 +144,9 @@ module.exports = function attachCollab(io) {
         io.to(roomId).emit("collab:run_result", { output: out });
       } catch (err) {
         console.error("Run failed:", err.message);
-        io.to(roomId).emit("collab:run_result", { output: "Execution failed ❌" });
+        io.to(roomId).emit("collab:run_result", {
+          output: "Execution failed ❌",
+        });
       }
     });
 
@@ -171,9 +173,9 @@ module.exports = function attachCollab(io) {
       console.log(`🔴 Socket disconnected: ${socket.id}`);
     });
   });
-};
+}
 
-function mapLanguage(lang) {
+export function mapLanguage(lang) {
   const judge0LanguageMap = {
     javascript: 63,
     python: 71,

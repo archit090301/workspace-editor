@@ -1,15 +1,16 @@
-// routes/ai.js
-const router = require("express").Router();
-const OpenAI = require("openai");
-require("dotenv").config();
+import express from "express";
+import OpenAI from "openai";
+import dotenv from "dotenv";
 
+dotenv.config();
+
+const router = express.Router();
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 router.post("/chat", async (req, res) => {
   try {
     const { messages = [], context = {} } = req.body;
 
-    // system behavior
     const sysPrompt = [
       "You are an AI assistant embedded inside a browser code editor.",
       "Be concise. If asked to change code, output full replacement or focused snippet.",
@@ -33,24 +34,23 @@ router.post("/chat", async (req, res) => {
       ...messages
     ];
 
-    // ✅ Mock if no API key set
     if (!process.env.OPENAI_API_KEY) {
       return res.json({ assistant: "🤖 (mock) AI response — no API key set." });
     }
 
     const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini", // or gpt-3.5-turbo if quota is lower
+      model: "gpt-4o-mini", 
       messages: compiledMessages,
       temperature: 0.2,
     });
 
-    const assistant = completion.choices?.[0]?.message?.content || "⚠️ No response generated.";
+    const assistant =
+      completion.choices?.[0]?.message?.content || "⚠️ No response generated.";
     return res.json({ assistant });
 
   } catch (err) {
     console.error("AI error:", err.response?.status, err.response?.data || err.message);
 
-    // Instead of sending 500, always send 200 with assistant message
     let assistantMessage = "❌ AI request failed (server error).";
 
     if (err.response?.status === 401) {
@@ -65,4 +65,4 @@ router.post("/chat", async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

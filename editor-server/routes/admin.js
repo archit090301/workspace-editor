@@ -1,17 +1,15 @@
-// routes/admin.js
-const express = require("express");
-const router = express.Router();
-const db = require("../db");
+import express from "express";
+import db from "../db.js";
 
-// Middleware to check admin role
+const router = express.Router();
+
 function isAdmin(req, res, next) {
-  if (req.isAuthenticated() && req.user.role_id === 2) {
+  if (req.isAuthenticated && req.isAuthenticated() && req.user?.role_id === 2) {
     return next();
   }
   return res.status(403).json({ error: "Forbidden: Admins only" });
 }
 
-// 📊 GET stats
 router.get("/stats", isAdmin, async (req, res) => {
   try {
     const [users] = await db.query("SELECT COUNT(*) AS count FROM users");
@@ -24,12 +22,11 @@ router.get("/stats", isAdmin, async (req, res) => {
       files: files[0].count,
     });
   } catch (err) {
-    console.error(err);
+    console.error("❌ Failed to fetch stats:", err.message);
     res.status(500).json({ error: "Failed to fetch stats" });
   }
 });
 
-// 👥 Get all users (for admin only)
 router.get("/users", isAdmin, async (req, res) => {
   try {
     const [rows] = await db.query(
@@ -37,21 +34,20 @@ router.get("/users", isAdmin, async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    console.error(err);
+    console.error("❌ Failed to fetch users:", err.message);
     res.status(500).json({ error: "Failed to fetch users" });
   }
 });
 
-// 🚀 Promote user to admin
 router.put("/promote/:id", isAdmin, async (req, res) => {
   try {
     const userId = req.params.id;
     await db.query("UPDATE users SET role_id = 2 WHERE user_id = ?", [userId]);
     res.json({ success: true, message: "User promoted to admin ✅" });
   } catch (err) {
-    console.error(err);
+    console.error("❌ Failed to promote user:", err.message);
     res.status(500).json({ error: "Failed to promote user" });
   }
 });
 
-module.exports = router;
+export default router;

@@ -1,12 +1,10 @@
-// routes/run.js
-const express = require("express");
-const axios = require("axios");
-const pool = require("../db");
-const { ensureAuth } = require("../middleware/auth");
+import express from "express";
+import axios from "axios";
+import db from "../db.js";
+import { ensureAuth } from "../middleware/auth.js";
 
 const router = express.Router();
 
-// Map frontend language -> Judge0
 const languageMap = {
   javascript: 63,
   python: 71,
@@ -14,7 +12,6 @@ const languageMap = {
   cpp: 54,
 };
 
-// POST /api/run (execute + save history)
 router.post("/", ensureAuth, async (req, res) => {
   const { code, language, stdin, fileId } = req.body;
   const languageId = languageMap[language];
@@ -26,7 +23,6 @@ router.post("/", ensureAuth, async (req, res) => {
   try {
     const start = Date.now();
 
-    // Send to Judge0
     const submission = await axios.post(
       "https://judge0-ce.p.rapidapi.com/submissions?base64_encoded=false&wait=true",
       {
@@ -46,7 +42,6 @@ router.post("/", ensureAuth, async (req, res) => {
     const result = submission.data;
     const duration = Date.now() - start;
 
-    // Build combined output
     let combinedOutput = "";
     let status = "success";
 
@@ -66,8 +61,7 @@ router.post("/", ensureAuth, async (req, res) => {
       status = "no_output";
     }
 
-    // Save execution history (IMPORTANT: use combinedOutput, not just stdout)
-    await pool.query(
+    await db.query(
       `INSERT INTO executions 
        (user_id, file_id, content_executed, input, output, language, language_id, stderr, compile_output, exit_code, status, duration_ms)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -76,7 +70,7 @@ router.post("/", ensureAuth, async (req, res) => {
         fileId || null,
         code,
         stdin || null,
-        combinedOutput, // ✅ FIX: save the combined output here
+        combinedOutput,
         language,
         languageId,
         result.stderr || null,
@@ -87,7 +81,6 @@ router.post("/", ensureAuth, async (req, res) => {
       ]
     );
 
-    // Return structured response
     res.json({
       stdout: result.stdout,
       stderr: result.stderr,
@@ -97,21 +90,19 @@ router.post("/", ensureAuth, async (req, res) => {
       output: combinedOutput,
     });
   } catch (err) {
-    console.error("Judge0 error:", err.response?.data || err.message);
+    console.error("❌ Judge0 error:", err.response?.data || err.message);
     res.status(500).json({ error: "Execution failed" });
   }
 });
 
-// GET /api/run/history (list recent executions for user)
-// GET /api/run/history (list recent executions for user)
 router.get("/history", ensureAuth, async (req, res) => {
   const { fileId, scratchpad, limit = 20 } = req.query;
 
   try {
     let query = `SELECT execution_id, file_id, language, status, duration_ms, timestamp, output
-                 FROM executions
-                 WHERE user_id = ?`;
-    let params = [req.user.user_id];
+                   FROM executions
+                  WHERE user_id = ?`;
+    const params = [req.user.user_id];
 
     if (fileId) {
       query += " AND file_id = ?";
@@ -123,28 +114,29 @@ router.get("/history", ensureAuth, async (req, res) => {
     query += " ORDER BY execution_id DESC LIMIT ?";
     params.push(Number(limit));
 
-    const [rows] = await pool.query(query, params);
+    const [rows] = await db.query(query, params);
     res.json(rows);
   } catch (err) {
-    console.error("History error:", err);
+    console.error("❌ History fetch error:", err.message);
     res.status(500).json({ error: "Failed to fetch history" });
   }
 });
 
-
-// GET /api/run/history/:id (view single execution)
 router.get("/history/:id", ensureAuth, async (req, res) => {
   try {
-    const [rows] = await pool.query(
+    const [rows] = await db.query(
       "SELECT * FROM executions WHERE execution_id = ? AND user_id = ?",
       [req.params.id, req.user.user_id]
     );
-    if (rows.length === 0) return res.status(404).json({ error: "Not found" });
+
+    if (rows.length === 0)
+      return res.status(404).json({ error: "Not found" });
+
     res.json(rows[0]);
   } catch (err) {
-    console.error("History detail error:", err);
+    console.error("❌ History detail error:", err.message);
     res.status(500).json({ error: "Failed to fetch execution detail" });
   }
 });
 
-module.exports = router;
+export default router;

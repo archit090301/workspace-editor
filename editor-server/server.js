@@ -1,21 +1,25 @@
-const express = require("express");
-const cors = require("cors");
-const session = require("express-session");
-const MySQLStore = require("express-mysql-session")(session);
-const passport = require("passport");
-const http = require("http");
-const { Server } = require("socket.io");
-require("dotenv").config();
+import express from "express";
+import cors from "cors";
+import session from "express-session";
+import connectMySQL from "express-mysql-session";
+import passport from "passport";
+import http from "http";
+import { Server } from "socket.io";
+import dotenv from "dotenv";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+
+dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
 
-// ---- CORS ----
 const allowedOrigins = [
   "http://localhost:5173",
   "https://workspace-editor.vercel.app",
-  "https://editor-server-o637.onrender.com"
+  "https://editor-server-o637.onrender.com",
 ];
-
 
 app.use(
   cors({
@@ -32,7 +36,8 @@ app.use(
 
 app.use(express.json());
 
-// ---- Session Store in MySQL ----
+const MySQLStore = connectMySQL(session);
+
 const sessionStore = new MySQLStore({
   host: process.env.DB_HOST,
   port: 3306,
@@ -40,16 +45,15 @@ const sessionStore = new MySQLStore({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   clearExpired: true,
-  checkExpirationInterval: 15 * 60 * 1000, // 15 min
-  expiration: 24 * 60 * 60 * 1000, // 1 day
+  checkExpirationInterval: 15 * 60 * 1000, 
+  expiration: 24 * 60 * 60 * 1000, 
 });
 
-// trust proxy (needed when behind Render/Heroku/EB)
 app.set("trust proxy", 1);
 
 app.use(
   session({
-    secret: process.env.SESSION_SECRET,
+    secret: process.env.SESSION_SECRET || "secret",
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
@@ -57,26 +61,24 @@ app.use(
       httpOnly: true,
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      secure: process.env.NODE_ENV === "production", // only send cookies over HTTPS
+      secure: process.env.NODE_ENV === "production",
     },
   })
 );
 
-// ---- Passport (before routes) ----
-require("./config/passport")(passport);
+import passportConfig from "./config/passport.js";
+passportConfig(passport);
+
 app.use(passport.initialize());
 app.use(passport.session());
 
-// ---- Routes ----
-const authRoutes = require("./routes/auth");
-const projectRoutes = require("./routes/projects");
-const fileRoutes = require("./routes/files");
-const runRoutes = require("./routes/run");
-const friendRoutes = require("./routes/friends");
-const adminRoutes = require("./routes/admin");
-const aiRoutes = require("./routes/ai");
-
-
+import authRoutes from "./routes/auth.js";
+import projectRoutes from "./routes/projects.js";
+import fileRoutes from "./routes/files.js";
+import runRoutes from "./routes/run.js";
+import friendRoutes from "./routes/friends.js";
+import adminRoutes from "./routes/admin.js";
+import aiRoutes from "./routes/ai.js";
 
 app.use("/api", authRoutes);
 app.use("/api/projects", projectRoutes);
@@ -86,10 +88,8 @@ app.use("/api/friends", friendRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/ai", aiRoutes);
 
-// Health check
 app.get("/", (req, res) => res.json({ ok: true }));
 
-// ---- HTTP + Socket.IO ----
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -98,11 +98,16 @@ const io = new Server(server, {
   },
 });
 
-// Collaborative sockets
-require("./sockets/collab")(io);
+import("./sockets/collab.js")
+  .then(({ default: collab }) => collab(io))
+  .catch((err) => console.error("Socket load error:", err));
 
-// ---- Start server ----
-const PORT = process.env.PORT || 5000;
-server.listen(PORT, () =>
-  console.log(`🚀 Server running on port ${PORT} [${process.env.NODE_ENV}]`)
-);
+if (process.env.NODE_ENV !== "test") {
+  const PORT = process.env.PORT || 5000;
+  server.listen(PORT, () =>
+    console.log(`🚀 Server running on port ${PORT} [${process.env.NODE_ENV}]`)
+  );
+}
+
+export { app, server };
+export default app;
