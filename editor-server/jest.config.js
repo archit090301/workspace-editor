@@ -1,5 +1,9 @@
 export default {
   testEnvironment: "node",
-  transform: {},
-  extensionsToTreatAsEsm: [".js"],
+  forceExit: true,          
+  detectOpenHandles: false, 
+  verbose: true,
+  testTimeout: 10000,       
+  transform: {},            
+  moduleFileExtensions: ["js", "json"],
 };
