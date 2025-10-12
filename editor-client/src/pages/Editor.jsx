@@ -1,4 +1,3 @@
-// src/pages/Editor.jsx
 import { useAuth } from "../AuthContext";
 import { Navigate, useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -10,11 +9,9 @@ import { cpp } from "@codemirror/lang-cpp";
 import { oneDark } from "@codemirror/theme-one-dark";
 import api from "../api";
 
-// DB language IDs
 const dbLanguageMap = { javascript: 1, python: 2, cpp: 3, java: 4 };
 const idToLanguage = { 1: "javascript", 2: "python", 3: "cpp", 4: "java" };
 
-// Judge0 IDs
 const judge0LanguageMap = { javascript: 63, python: 71, cpp: 54, java: 62 };
 
 export default function Editor() {
@@ -32,17 +29,14 @@ export default function Editor() {
   const [saveMsg, setSaveMsg] = useState("");
   const [fileName, setFileName] = useState("");
 
-  // Scratchpad state
   const [projects, setProjects] = useState([]);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [selectedProject, setSelectedProject] = useState("");
   const [newProjectName, setNewProjectName] = useState("");
   const [scratchpadFileName, setScratchpadFileName] = useState("scratchpad.js");
 
-  // Fullscreen state
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Responsive state
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -50,11 +44,9 @@ export default function Editor() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Execution history state
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
 
-  // === AI Chat state ===
   const [showChat, setShowChat] = useState(false);
   const [chatMessages, setChatMessages] = useState([
     {
@@ -72,7 +64,6 @@ export default function Editor() {
   const [includeFileMeta, setIncludeFileMeta] = useState(true);
   const chatListRef = useRef(null);
 
-  // CodeMirror ref to insert text at cursor
   const editorRef = useRef(null);
 
   const scrollChatToEnd = useCallback(() => {
@@ -85,7 +76,6 @@ export default function Editor() {
   if (loading) return <p>Loading...</p>;
   if (!user) return <Navigate to="/login" />;
 
-  // Fetch file details
   useEffect(() => {
     if (!fileId) {
       setStatus("ready");
@@ -115,7 +105,6 @@ export default function Editor() {
     }
   };
 
-  // Run
   const handleRun = async () => {
     setRunning(true);
     setOutput("⚡ Running...");
@@ -139,7 +128,6 @@ export default function Editor() {
     }
   };
 
-  // Save
   const handleSave = async () => {
     if (!fileId) {
       setShowSaveDialog(true);
@@ -161,7 +149,6 @@ export default function Editor() {
     }
   };
 
-  // Save Scratchpad
   const handleSaveToProject = async () => {
     try {
       let projectIdToUse = selectedProject;
@@ -184,7 +171,24 @@ export default function Editor() {
     }
   };
 
-  // Export (download file)
+  const handleExportOutput = () => {
+  if (!output.trim()) {
+    alert("No output to export.");
+    return;
+  }
+
+  const blob = new Blob([output], { type: "text/plain;charset=utf-8" });
+  const filename = `${fileName ? fileName.split(".")[0] : "output"}_result.txt`;
+
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+
   const handleExport = () => {
     const blob = new Blob([code], { type: "text/plain;charset=utf-8" });
     const ext =
@@ -202,7 +206,6 @@ export default function Editor() {
     document.body.removeChild(link);
   };
 
-  // Import (upload file)
   const handleImport = (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -214,10 +217,8 @@ export default function Editor() {
     reader.readAsText(file);
   };
 
-  // Toggle Fullscreen
   const toggleFullscreen = () => setIsFullscreen(!isFullscreen);
 
-  // Show history
   const handleShowHistory = async () => {
     setShowHistory(true);
     try {
@@ -228,7 +229,6 @@ export default function Editor() {
     }
   };
 
-  // === AI Chat helpers ===
   const buildContext = () => ({
     language,
     fileName: fileName || (fileId ? `File ${fileId}` : "scratchpad"),
@@ -259,7 +259,6 @@ export default function Editor() {
       { id: `a-${Date.now()}`, role: "assistant", content: text }
     ]);
   } catch (err) {
-    // This should rarely trigger now, since backend always returns 200
     console.error("Chat error:", err);
     setChatMessages((msgs) => [
       ...msgs,
@@ -274,7 +273,6 @@ export default function Editor() {
   const handleQuickAsk = (prompt) => {
     setShowChat(true);
     setChatInput(prompt);
-    // optional: auto-send
   };
 
   const insertAtCursor = (text) => {
@@ -287,7 +285,6 @@ export default function Editor() {
 
   const editorTheme = user?.preferred_theme_id === 2 ? oneDark : "light";
 
-  // Keyboard: Ctrl/⌘ + Enter in chat
   const onChatKeyDown = (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
       e.preventDefault();
@@ -301,7 +298,6 @@ export default function Editor() {
 
   return (
     <div style={{ ...styles.wrapper, ...(isFullscreen ? styles.fullscreen : {}) }}>
-      {/* Toolbar */}
       <div style={{
         ...styles.toolbar,
         flexDirection: isMobile ? "column" : "row",
@@ -330,6 +326,7 @@ export default function Editor() {
             💾 {saving ? "Saving..." : "Save"}
           </button>
           <button onClick={handleExport} style={styles.btnExport}>⬇ Export</button>
+          <button onClick={handleExportOutput} style={styles.btnExport}>📤 Export Output</button>
           <label style={styles.btnImport}>
             ⬆ Import
             <input type="file" accept=".js,.py,.java,.cpp,.txt" onChange={handleImport} style={{ display: "none" }} />
@@ -345,12 +342,10 @@ export default function Editor() {
         </div>
       </div>
 
-      {/* Split Layout */}
       <div style={{
         ...styles.main,
         flexDirection: isMobile ? "column" : "row"
       }}>
-        {/* Editor Pane */}
         <div style={{
           ...styles.editorPane,
           borderRight: (!isMobile && !isFullscreen && showChat) ? "1px solid #ddd" : (isMobile ? "none" : "1px solid #ddd"),
@@ -371,12 +366,11 @@ export default function Editor() {
           )}
         </div>
 
-        {/* IO Pane */}
         {!isFullscreen && (
           <div style={{
             ...styles.ioPane,
             flexDirection: "column",
-            display: showChat && !isMobile ? "none" : "flex" // hide IO when chat is open on desktop? keep or remove; here we keep IO visible on desktop unless you prefer more room for chat
+            display: showChat && !isMobile ? "none" : "flex" 
           }}>
             <div style={{ ...styles.ioSection, flex: isMobile ? "none" : 1 }}>
               <label style={styles.ioLabel}>Input</label>
@@ -408,7 +402,6 @@ export default function Editor() {
           </div>
         )}
 
-        {/* AI Chat Panel */}
         {!isFullscreen && showChat && (
           <div style={{
             ...styles.chatPanel,
@@ -419,13 +412,11 @@ export default function Editor() {
             height: isMobile ? "100vh" : "auto",
             zIndex: 2500,
           }}>
-            {/* Chat header */}
             <div style={styles.chatHeader}>
               <strong>🤖 AI Assistant</strong>
               <button onClick={() => setShowChat(false)} style={styles.chatCloseBtn}>✖</button>
             </div>
 
-            {/* Context toggles */}
             <div style={styles.contextRow}>
               <label style={styles.ck}><input type="checkbox" checked={includeCode} onChange={() => setIncludeCode(v => !v)} /> Code</label>
               <label style={styles.ck}><input type="checkbox" checked={includeOutput} onChange={() => setIncludeOutput(v => !v)} /> Output</label>
@@ -433,7 +424,6 @@ export default function Editor() {
               <label style={styles.ck}><input type="checkbox" checked={includeFileMeta} onChange={() => setIncludeFileMeta(v => !v)} /> Meta</label>
             </div>
 
-            {/* Quick prompts */}
             <div style={styles.quickRow}>
               {[
                 "Explain what this code does.",
@@ -446,7 +436,6 @@ export default function Editor() {
               ))}
             </div>
 
-            {/* Messages */}
             <div ref={chatListRef} style={styles.chatList}>
               {chatMessages.map((m) => (
                 <div key={m.id} style={{
@@ -476,7 +465,6 @@ export default function Editor() {
               ))}
             </div>
 
-            {/* Composer */}
             <div style={styles.chatComposer}>
               <textarea
                 value={chatInput}
@@ -503,7 +491,6 @@ export default function Editor() {
         )}
       </div>
 
-      {/* Save Modal */}
       {showSaveDialog && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalBox}>
@@ -524,7 +511,6 @@ export default function Editor() {
         </div>
       )}
 
-      {/* History Modal */}
       {showHistory && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalBox}>
@@ -639,7 +625,6 @@ const styles = {
   textarea: { flex: 1, borderRadius: "6px", border: "1px solid #ccc", padding: "0.5rem", fontFamily: "monospace" },
   output: { flex: 1, borderRadius: "6px", border: "1px solid #ddd", padding: "0.5rem", background: "#1e1e2f", color: "#0f0", fontFamily: "monospace" },
 
-  // Chat styles
   chatPanel: {
     background: "#ffffff",
     borderLeft: "1px solid #e5e7eb",
@@ -762,7 +747,6 @@ const styles = {
   },
   hint: { fontSize: "0.75rem", color: "#6b7280" },
 
-  // Modals
   modalOverlay: {
     position: "fixed", top: 0, left: 0, width: "100%", height: "100%",
     background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center",
