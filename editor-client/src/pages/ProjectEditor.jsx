@@ -36,7 +36,26 @@ export default function ProjectEditor() {
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState([]);
 
+  // Mobile states
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+
   const dragIndex = useRef(null);
+
+  // Detect mobile screen size
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth <= 768;
+      setIsMobile(mobile);
+      if (!mobile) {
+        setSidebarOpen(false);
+        setShowMobileMenu(false);
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   if (loading) return <p>Loading...</p>;
   if (!user) return <Navigate to="/login" />;
@@ -92,6 +111,7 @@ export default function ProjectEditor() {
         setActiveFile(existing);
         setCode(existing.content ?? "// empty file");
         setLanguage(idToLanguage[existing.language_id] || "javascript");
+        if (isMobile) setSidebarOpen(false);
         return;
       }
 
@@ -102,6 +122,7 @@ export default function ProjectEditor() {
       setActiveFile(newTab);
       setCode(newTab.content);
       setLanguage(idToLanguage[newTab.language_id] || "javascript");
+      if (isMobile) setSidebarOpen(false);
     } catch (err) {
       console.error(err);
     }
@@ -174,7 +195,7 @@ export default function ProjectEditor() {
     setSaveMsg("");
     try {
       await api.put(`/files/${current.file_id}`, {
-        content: current.content,
+        content: code,
         language_id: dbLanguageMap[language],
       });
       setSaveMsg("Saved ✅");
@@ -246,169 +267,274 @@ export default function ProjectEditor() {
 
   const editorTheme = user?.preferred_theme_id === 2 ? oneDark : "light";
 
+  // Mobile menu actions
+  const handleMobileMenuAction = (action) => {
+    setShowMobileMenu(false);
+    switch (action) {
+      case 'save': handleSave(); break;
+      case 'export': handleExport(); break;
+      case 'import': document.querySelector('input[type="file"]').click(); break;
+      case 'fullscreen': toggleFullscreen(); break;
+      case 'history': loadHistory(); break;
+      case 'delete': activeFile && deleteFile(activeFile.file_id); break;
+      default: break;
+    }
+  };
+
   return (
-    <div style={{ display: "flex", height: "100vh" }}>
-      {/* Sidebar */}
-      <div style={{ width: 220, borderRight: "1px solid #ddd", padding: "1rem" }}>
-        <h3>Files in Project {projectId}</h3>
-        <ul style={{ listStyle: "none", padding: 0 }}>
-          {files.map((f) => (
-            <li key={f.file_id} style={{ marginBottom: 6 }}>
+    <div style={isFullscreen ? styles.fullscreenWrapper : styles.wrapper}>
+      {/* Mobile Header */}
+      {isMobile && (
+        <div style={styles.mobileHeader}>
+          <button 
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            style={styles.mobileMenuBtn}
+          >
+            ☰ Files
+          </button>
+          <span style={styles.mobileTitle}>
+            {activeFile ? activeFile.file_name : "Project Editor"}
+          </span>
+          <button 
+            onClick={() => setShowMobileMenu(!showMobileMenu)}
+            style={styles.mobileMenuBtn}
+          >
+            ⋮ Tools
+          </button>
+        </div>
+      )}
+
+      <div style={styles.container}>
+        {/* Sidebar */}
+        <div style={{
+          ...styles.sidebar,
+          transform: isMobile && !sidebarOpen ? 'translateX(-100%)' : 'translateX(0)',
+          position: isMobile ? 'fixed' : 'relative',
+          zIndex: isMobile ? 1000 : 1,
+          height: isMobile ? '100vh' : 'auto',
+        }}>
+          <div style={styles.sidebarHeader}>
+            <h3 style={styles.sidebarTitle}>Project Files</h3>
+            {isMobile && (
+              <button 
+                onClick={() => setSidebarOpen(false)}
+                style={styles.closeBtn}
+              >
+                ✖
+              </button>
+            )}
+          </div>
+          
+          <div style={styles.fileList}>
+            {files.map((f) => (
               <button
+                key={f.file_id}
                 style={{
-                  width: "100%",
-                  background: activeFile?.file_id === f.file_id ? "#4e54c8" : "#f5f5f5",
-                  color: activeFile?.file_id === f.file_id ? "#fff" : "#333",
-                  border: "1px solid #ccc",
-                  padding: "6px 8px",
-                  borderRadius: 4,
-                  textAlign: "left",
-                  cursor: "pointer",
+                  ...styles.fileButton,
+                  background: activeFile?.file_id === f.file_id ? '#4e54c8' : '#f8fafc',
+                  color: activeFile?.file_id === f.file_id ? '#fff' : '#333',
                 }}
                 onClick={() => openFile(f)}
               >
-                {f.file_name}
+                <span style={styles.fileName}>{f.file_name}</span>
+                {activeFile?.file_id === f.file_id && (
+                  <span style={styles.activeIndicator}>●</span>
+                )}
               </button>
-            </li>
-          ))}
-        </ul>
-
-        <input
-          value={newFileName}
-          onChange={(e) => setNewFileName(e.target.value)}
-          placeholder="New file name"
-          style={{ width: "100%", marginTop: ".5rem" }}
-        />
-        <button onClick={createFile} style={{ marginTop: ".5rem", width: "100%" }}>
-          Create File
-        </button>
-      </div>
-
-      <div style={{ flex: 1, padding: "1rem", ...(isFullscreen ? fullscreenStyle : {}) }}>
-        {/* Tabs */}
-        {openTabs.length > 0 && (
-          <div style={{ display: "flex", borderBottom: "1px solid #ccc", marginBottom: ".5rem", overflowX: "auto" }}>
-            {openTabs.map((tab, i) => (
-              <div
-                key={tab.file_id}
-                draggable
-                onDragStart={() => handleDragStart(i)}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => handleDrop(i)}
-                onClick={() => {
-                  setActiveTabId(tab.file_id);
-                  setActiveFile(tab);
-                  setCode(tab.content);
-                  setLanguage(idToLanguage[tab.language_id] || "javascript");
-                }}
-                style={{
-                  padding: ".5rem 1rem",
-                  background: tab.file_id === activeTabId ? "#4e54c8" : "#eaeaea",
-                  color: tab.file_id === activeTabId ? "#fff" : "#333",
-                  borderRight: "1px solid #ccc",
-                  cursor: "pointer",
-                  userSelect: "none",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}
-              >
-                {tab.file_name}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setOpenTabs((prev) => prev.filter((t) => t.file_id !== tab.file_id));
-                    if (tab.file_id === activeTabId) {
-                      const next = openTabs.find((t) => t.file_id !== tab.file_id);
-                      setActiveTabId(next?.file_id || null);
-                      setActiveFile(next || null);
-                      setCode(next?.content || "// write code here");
-                    }
-                  }}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: tab.file_id === activeTabId ? "#fff" : "#333",
-                    fontWeight: "bold",
-                    cursor: "pointer",
-                    marginLeft: 8,
-                  }}
-                  title="Close tab"
-                >
-                  ×
-                </button>
-              </div>
             ))}
           </div>
-        )}
 
-        {activeFile ? (
-          <>
-            <div style={{ marginBottom: "1rem", display: "flex", gap: ".5rem", flexWrap: "wrap" }}>
-              <label>Language:</label>
-              <select value={language} onChange={(e) => setLanguage(e.target.value)}>
-                <option value="javascript">JavaScript</option>
-                <option value="python">Python</option>
-                <option value="java">Java</option>
-                <option value="cpp">C++</option>
-              </select>
-
-              <button onClick={handleRun} disabled={running} style={btnPrimary}>
-                {running ? "Running..." : "Run"}
-              </button>
-              <button onClick={handleSave} disabled={saving} style={btnSecondary}>
-                {saving ? "Saving..." : "Save"}
-              </button>
-              <button
-                onClick={() => deleteFile(activeFile.file_id)}
-                style={{ ...btnSecondary, background: "red", color: "#fff", border: "none" }}
-              >
-                Delete
-              </button>
-
-              <button onClick={handleExport} style={btnSecondary}>⬇ Export</button>
-              <label style={btnSecondary}>
-                ⬆ Import
-                <input type="file" accept=".js,.py,.java,.cpp,.txt" onChange={handleImport} style={{ display: "none" }} />
-              </label>
-              <button onClick={toggleFullscreen} style={btnSecondary}>
-                {isFullscreen ? "🗕 Exit Fullscreen" : "🗖 Fullscreen"}
-              </button>
-              <button onClick={loadHistory} style={btnSecondary}>📜 History</button>
-              {saveMsg && <span>{saveMsg}</span>}
-            </div>
-
-            <CodeMirror
-              value={code}
-              height={isFullscreen ? "80vh" : "60vh"}
-              width="100%"
-              theme={editorTheme}
-              extensions={getExtensions()}
-              onChange={(val) => {
-                setCode(val);
-                setOpenTabs((prev) =>
-                  prev.map((t) => (t.file_id === activeTabId ? { ...t, content: val } : t))
-                );
-              }}
+          <div style={styles.newFileSection}>
+            <input
+              value={newFileName}
+              onChange={(e) => setNewFileName(e.target.value)}
+              placeholder="New file name"
+              style={styles.newFileInput}
+              onKeyPress={(e) => e.key === 'Enter' && createFile()}
             />
+            <button onClick={createFile} style={styles.createButton}>
+              + Create File
+            </button>
+          </div>
+        </div>
 
-            <div style={outBox}>
-              <strong>Output:</strong>
-              <div>{output}</div>
-            </div>
-          </>
-        ) : (
-          <h3>Select a file to start editing</h3>
+        {/* Mobile Sidebar Overlay */}
+        {isMobile && sidebarOpen && (
+          <div 
+            style={styles.overlay}
+            onClick={() => setSidebarOpen(false)}
+          />
         )}
+
+        {/* Main Content */}
+        <div style={styles.mainContent}>
+          {/* Tabs */}
+          {openTabs.length > 0 && (
+            <div style={styles.tabsContainer}>
+              <div style={styles.tabsScroll}>
+                {openTabs.map((tab, i) => (
+                  <div
+                    key={tab.file_id}
+                    draggable={!isMobile}
+                    onDragStart={() => handleDragStart(i)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => handleDrop(i)}
+                    onClick={() => {
+                      setActiveTabId(tab.file_id);
+                      setActiveFile(tab);
+                      setCode(tab.content);
+                      setLanguage(idToLanguage[tab.language_id] || "javascript");
+                    }}
+                    style={{
+                      ...styles.tab,
+                      background: tab.file_id === activeTabId ? '#4e54c8' : '#e2e8f0',
+                      color: tab.file_id === activeTabId ? '#fff' : '#4a5568',
+                    }}
+                  >
+                    <span style={styles.tabName}>{tab.file_name}</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenTabs((prev) => prev.filter((t) => t.file_id !== tab.file_id));
+                        if (tab.file_id === activeTabId) {
+                          const next = openTabs.find((t) => t.file_id !== tab.file_id);
+                          setActiveTabId(next?.file_id || null);
+                          setActiveFile(next || null);
+                          setCode(next?.content || "// write code here");
+                        }
+                      }}
+                      style={styles.tabClose}
+                      title="Close tab"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Editor Area */}
+          <div style={styles.editorArea}>
+            {activeFile ? (
+              <>
+                {/* Toolbar */}
+                <div style={styles.toolbar}>
+                  <div style={styles.toolbarMain}>
+                    <select 
+                      value={language} 
+                      onChange={(e) => setLanguage(e.target.value)}
+                      style={styles.languageSelect}
+                    >
+                      <option value="javascript">JavaScript</option>
+                      <option value="python">Python</option>
+                      <option value="java">Java</option>
+                      <option value="cpp">C++</option>
+                    </select>
+
+                    <button onClick={handleRun} disabled={running} style={styles.btnPrimary}>
+                      {running ? "Running..." : "▶ Run"}
+                    </button>
+                    <button onClick={handleSave} disabled={saving} style={styles.btnSecondary}>
+                      {saving ? "Saving..." : "💾 Save"}
+                    </button>
+
+                    {/* Secondary tools - hidden in mobile menu */}
+                    {(!isMobile || showMobileMenu) && (
+                      <div style={isMobile ? styles.mobileToolsMenu : styles.toolbarSecondary}>
+                        <button onClick={handleExport} style={styles.btnSecondary}>⬇ Export</button>
+                        <label style={styles.btnSecondary}>
+                          ⬆ Import
+                          <input type="file" accept=".js,.py,.java,.cpp,.txt" onChange={handleImport} style={{ display: "none" }} />
+                        </label>
+                        <button onClick={toggleFullscreen} style={styles.btnSecondary}>
+                          {isFullscreen ? "🗕 Exit FS" : "🗖 Fullscreen"}
+                        </button>
+                        <button onClick={loadHistory} style={styles.btnSecondary}>📜 History</button>
+                        <button
+                          onClick={() => deleteFile(activeFile.file_id)}
+                          style={{ ...styles.btnSecondary, background: '#e53e3e', color: 'white' }}
+                        >
+                          🗑 Delete
+                        </button>
+                      </div>
+                    )}
+                    
+                    {saveMsg && <span style={styles.saveMessage}>{saveMsg}</span>}
+                  </div>
+                </div>
+
+                {/* Code Editor */}
+                <div style={styles.editorContainer}>
+                  <CodeMirror
+                    value={code}
+                    height={isMobile ? "50vh" : "60vh"}
+                    theme={editorTheme}
+                    extensions={getExtensions()}
+                    onChange={(val) => {
+                      setCode(val);
+                      setOpenTabs((prev) =>
+                        prev.map((t) => (t.file_id === activeTabId ? { ...t, content: val } : t))
+                      );
+                    }}
+                  />
+                </div>
+
+                {/* Output */}
+                <div style={styles.outputContainer}>
+                  <h4 style={styles.outputTitle}>Output</h4>
+                  <pre style={styles.output}>
+                    {output || "Run your code to see output here..."}
+                  </pre>
+                </div>
+              </>
+            ) : (
+              <div style={styles.emptyState}>
+                <h3>Select a file to start editing</h3>
+                <p>Choose a file from the sidebar or create a new one</p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
+      {/* Mobile Tools Menu Overlay */}
+      {isMobile && showMobileMenu && (
+        <div style={styles.overlay} onClick={() => setShowMobileMenu(false)}>
+          <div style={styles.mobileMenu} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.mobileMenuHeader}>
+              <h3>Tools</h3>
+              <button onClick={() => setShowMobileMenu(false)} style={styles.closeBtn}>✖</button>
+            </div>
+            <div style={styles.mobileMenuItems}>
+              <button onClick={() => handleMobileMenuAction('export')} style={styles.mobileMenuItem}>
+                ⬇ Export Code
+              </button>
+              <button onClick={() => handleMobileMenuAction('import')} style={styles.mobileMenuItem}>
+                ⬆ Import File
+              </button>
+              <button onClick={() => handleMobileMenuAction('fullscreen')} style={styles.mobileMenuItem}>
+                {isFullscreen ? "🗕 Exit Fullscreen" : "🗖 Fullscreen"}
+              </button>
+              <button onClick={() => handleMobileMenuAction('history')} style={styles.mobileMenuItem}>
+                📜 History
+              </button>
+              <button onClick={() => handleMobileMenuAction('delete')} style={styles.mobileMenuItem}>
+                🗑 Delete File
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* History Modal */}
       {showHistory && (
-        <div style={modalOverlay}>
-          <div style={modalBox}>
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalBox}>
             <h3>📜 Execution History</h3>
-            <ul style={{ maxHeight: 400, overflowY: "auto", padding: 0, listStyle: "none" }}>
+            <div style={styles.historyList}>
               {history.map((h) => (
-                <li
+                <div
                   key={h.execution_id}
                   onClick={async () => {
                     try {
@@ -423,24 +549,20 @@ export default function ProjectEditor() {
                       alert("Could not load history entry");
                     }
                   }}
-                  style={{
-                    borderBottom: "1px solid #ddd",
-                    marginBottom: 8,
-                    padding: 8,
-                    cursor: "pointer",
-                    background: "#fafafa",
-                    borderRadius: 6,
-                  }}
+                  style={styles.historyItem}
                 >
-                  <strong>{h.language}</strong> • {h.status}
-                  <br />
-                  {new Date(h.timestamp).toLocaleString()}
-                  <br />
-                  <small style={{ color: "#666" }}>Click to load</small>
-                </li>
+                  <div style={styles.historyHeader}>
+                    <strong>{h.language}</strong>
+                    <span style={styles.historyStatus}>{h.status}</span>
+                  </div>
+                  <div style={styles.historyTime}>
+                    {new Date(h.timestamp).toLocaleString()}
+                  </div>
+                  <small style={styles.historyHint}>Click to load</small>
+                </div>
               ))}
-            </ul>
-            <button onClick={() => setShowHistory(false)} style={btnSecondary}>
+            </div>
+            <button onClick={() => setShowHistory(false)} style={styles.btnSecondary}>
               Close
             </button>
           </div>
@@ -450,55 +572,395 @@ export default function ProjectEditor() {
   );
 }
 
-const btnPrimary = {
-  padding: ".4rem 1rem",
-  background: "#4e54c8",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  cursor: "pointer",
-};
-const btnSecondary = {
-  padding: ".4rem 1rem",
-  background: "#eaeaea",
-  color: "#333",
-  border: "1px solid #ccc",
-  borderRadius: 6,
-  cursor: "pointer",
-};
-const outBox = {
-  marginTop: "1rem",
-  padding: "1rem",
-  background: "#f7f7f7",
-  borderRadius: 8,
-  border: "1px solid #ddd",
-  whiteSpace: "pre-wrap",
-  fontFamily: "monospace",
-};
-const fullscreenStyle = {
-  position: "fixed",
-  top: 0,
-  left: 0,
-  width: "100%",
-  height: "100%",
-  background: "#1e1e2f",
-  zIndex: 2000,
-};
-const modalOverlay = {
-  position: "fixed",
-  top: 0,
-  left: 0,
-  width: "100%",
-  height: "100%",
-  background: "rgba(0,0,0,0.6)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-};
-const modalBox = {
-  background: "#fff",
-  padding: "1.5rem",
-  borderRadius: 10,
-  width: 400,
-  boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
+const styles = {
+  wrapper: {
+    minHeight: '100vh',
+    background: '#f8fafc',
+    fontFamily: "'Inter', sans-serif",
+  },
+  fullscreenWrapper: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    background: '#1e1e2f',
+    zIndex: 2000,
+    fontFamily: "'Inter', sans-serif",
+  },
+  mobileHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '1rem',
+    background: 'linear-gradient(135deg, #4e54c8, #8f94fb)',
+    color: 'white',
+    position: 'sticky',
+    top: 0,
+    zIndex: 100,
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+  },
+  mobileMenuBtn: {
+    padding: '0.5rem 1rem',
+    background: 'rgba(255,255,255,0.2)',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontWeight: '500',
+  },
+  mobileTitle: {
+    fontWeight: '600',
+    fontSize: '1rem',
+    textAlign: 'center',
+    flex: 1,
+    margin: '0 1rem',
+  },
+  container: {
+    display: 'flex',
+    height: 'calc(100vh - 60px)',
+  },
+  sidebar: {
+    width: '280px',
+    background: 'white',
+    borderRight: '1px solid #e2e8f0',
+    display: 'flex',
+    flexDirection: 'column',
+    transition: 'transform 0.3s ease',
+    boxShadow: '2px 0 8px rgba(0,0,0,0.1)',
+  },
+  sidebarHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '1rem 1.5rem',
+    borderBottom: '1px solid #e2e8f0',
+    background: '#f8fafc',
+  },
+  sidebarTitle: {
+    margin: 0,
+    fontSize: '1.1rem',
+    fontWeight: '600',
+    color: '#2d3748',
+  },
+  closeBtn: {
+    background: 'none',
+    border: 'none',
+    fontSize: '1.2rem',
+    cursor: 'pointer',
+    color: '#718096',
+    padding: '0.25rem',
+    borderRadius: '4px',
+  },
+  fileList: {
+    flex: 1,
+    overflowY: 'auto',
+    padding: '0.5rem',
+  },
+  fileButton: {
+    width: '100%',
+    border: '1px solid #e2e8f0',
+    padding: '0.75rem 1rem',
+    borderRadius: '8px',
+    textAlign: 'left',
+    cursor: 'pointer',
+    marginBottom: '0.5rem',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    transition: 'all 0.2s',
+    fontWeight: '500',
+  },
+  fileName: {
+    flex: 1,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  activeIndicator: {
+    color: 'inherit',
+    fontSize: '1.2rem',
+  },
+  newFileSection: {
+    padding: '1rem 1.5rem',
+    borderTop: '1px solid #e2e8f0',
+    background: '#f8fafc',
+  },
+  newFileInput: {
+    width: '100%',
+    padding: '0.75rem',
+    border: '1px solid #cbd5e0',
+    borderRadius: '6px',
+    marginBottom: '0.75rem',
+    fontSize: '0.9rem',
+  },
+  createButton: {
+    width: '100%',
+    padding: '0.75rem',
+    background: '#48bb78',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontWeight: '600',
+    fontSize: '0.9rem',
+  },
+  overlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: 'rgba(0,0,0,0.5)',
+    zIndex: 999,
+  },
+  mainContent: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    background: 'white',
+    overflow: 'hidden',
+  },
+  tabsContainer: {
+    borderBottom: '1px solid #e2e8f0',
+    background: '#f8fafc',
+  },
+  tabsScroll: {
+    display: 'flex',
+    overflowX: 'auto',
+    padding: '0.5rem',
+    gap: '0.25rem',
+  },
+  tab: {
+    display: 'flex',
+    alignItems: 'center',
+    padding: '0.5rem 1rem',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    userSelect: 'none',
+    minWidth: '120px',
+    transition: 'all 0.2s',
+    border: '1px solid rgba(0,0,0,0.1)',
+  },
+  tabName: {
+    flex: 1,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    fontSize: '0.9rem',
+    fontWeight: '500',
+  },
+  tabClose: {
+    background: 'transparent',
+    border: 'none',
+    color: 'inherit',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    marginLeft: '8px',
+    fontSize: '1.1rem',
+    opacity: 0.7,
+  },
+  editorArea: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+  },
+  toolbar: {
+    padding: '1rem',
+    borderBottom: '1px solid #e2e8f0',
+    background: '#f8fafc',
+  },
+  toolbarMain: {
+    display: 'flex',
+    gap: '0.75rem',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  languageSelect: {
+    padding: '0.5rem',
+    border: '1px solid #cbd5e0',
+    borderRadius: '6px',
+    background: 'white',
+    fontWeight: '500',
+    minWidth: '140px',
+  },
+  btnPrimary: {
+    padding: '0.5rem 1.5rem',
+    background: '#4e54c8',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontWeight: '600',
+    transition: 'all 0.2s',
+  },
+  btnSecondary: {
+    padding: '0.5rem 1rem',
+    background: 'white',
+    color: '#4a5568',
+    border: '1px solid #cbd5e0',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontWeight: '500',
+    transition: 'all 0.2s',
+  },
+  toolbarSecondary: {
+    display: 'flex',
+    gap: '0.5rem',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  saveMessage: {
+    padding: '0.5rem 1rem',
+    background: '#48bb78',
+    color: 'white',
+    borderRadius: '20px',
+    fontSize: '0.875rem',
+    fontWeight: '500',
+  },
+  editorContainer: {
+    flex: 1,
+    borderBottom: '1px solid #e2e8f0',
+  },
+  outputContainer: {
+    padding: '1rem',
+    background: '#1a202c',
+    color: '#90ee90',
+    maxHeight: '30vh',
+    overflow: 'auto',
+  },
+  outputTitle: {
+    margin: '0 0 0.75rem 0',
+    color: '#e2e8f0',
+    fontSize: '1rem',
+  },
+  output: {
+    margin: 0,
+    fontFamily: 'monospace',
+    fontSize: '0.875rem',
+    whiteSpace: 'pre-wrap',
+    lineHeight: '1.5',
+  },
+  emptyState: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'center',
+    color: '#718096',
+    textAlign: 'center',
+    padding: '2rem',
+  },
+  mobileToolsMenu: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    background: 'white',
+    border: '1px solid #e2e8f0',
+    borderRadius: '8px',
+    padding: '1rem',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+    zIndex: 100,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.5rem',
+  },
+  mobileMenu: {
+    position: 'fixed',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    background: 'white',
+    borderRadius: '12px',
+    padding: '1.5rem',
+    width: '90%',
+    maxWidth: '400px',
+    maxHeight: '80vh',
+    overflow: 'auto',
+    zIndex: 1000,
+    boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+  },
+  mobileMenuHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '1rem',
+    paddingBottom: '1rem',
+    borderBottom: '1px solid #e2e8f0',
+  },
+  mobileMenuItems: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.5rem',
+  },
+  mobileMenuItem: {
+    padding: '1rem',
+    border: '1px solid #e2e8f0',
+    borderRadius: '8px',
+    background: 'white',
+    cursor: 'pointer',
+    textAlign: 'left',
+    fontWeight: '500',
+    transition: 'all 0.2s',
+  },
+  modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: 'rgba(0,0,0,0.5)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2000,
+  },
+  modalBox: {
+    background: 'white',
+    padding: '2rem',
+    borderRadius: '12px',
+    width: '90%',
+    maxWidth: '500px',
+    maxHeight: '80vh',
+    overflow: 'auto',
+    boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+  },
+  historyList: {
+    maxHeight: '400px',
+    overflowY: 'auto',
+    marginBottom: '1.5rem',
+  },
+  historyItem: {
+    padding: '1rem',
+    border: '1px solid #e2e8f0',
+    borderRadius: '8px',
+    marginBottom: '0.75rem',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    background: '#f8fafc',
+  },
+  historyHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '0.5rem',
+  },
+  historyStatus: {
+    fontSize: '0.875rem',
+    color: '#718096',
+    background: '#edf2f7',
+    padding: '0.25rem 0.5rem',
+    borderRadius: '12px',
+  },
+  historyTime: {
+    fontSize: '0.875rem',
+    color: '#718096',
+    marginBottom: '0.25rem',
+  },
+  historyHint: {
+    color: '#4e54c8',
+    fontSize: '0.75rem',
+  },
 };
