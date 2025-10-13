@@ -1,71 +1,126 @@
 import { useAuth } from "../AuthContext";
 import { Link } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "./Navbar.css";
 
 function Navbar() {
   const { user, logout, loading } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile screen size
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
+  // Close menu when clicking outside on mobile
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuOpen && isMobile && !event.target.closest('.navbar')) {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [menuOpen, isMobile]);
 
   if (loading) {
     return (
       <nav className="navbar">
-        <span className="link">Loading...</span>
+        <div className="nav-container">
+          <span className="brand">Loading...</span>
+        </div>
       </nav>
     );
   }
 
   return (
     <nav className="navbar">
-      <div className="left">
-        <Link to="/" className="brand">CodeEditor 🚀</Link>
-      </div>
+      <div className="nav-container">
+        <div className="nav-left">
+          <Link to="/" className="brand" onClick={() => setMenuOpen(false)}>
+            CodeEditor 🚀
+          </Link>
+        </div>
 
-      {/* Hamburger Button */}
-      <button
-        className={`hamburgerBtn ${menuOpen ? "open" : ""}`}
-        onClick={() => setMenuOpen(!menuOpen)}
-      >
-        <span></span>
-        <span></span>
-        <span></span>
-      </button>
-
-      {/* Links */}
-      <div className={`right ${menuOpen ? "open" : ""}`}>
-        {!user && (
-          <>
-            <Link to="/register" className="link" onClick={() => setMenuOpen(false)}>Register</Link>
-            <Link to="/login" className="link" onClick={() => setMenuOpen(false)}>Login</Link>
-          </>
+        {/* Hamburger Button - Only show on mobile */}
+        {isMobile && (
+          <button
+            className={`hamburger-btn ${menuOpen ? "open" : ""}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuOpen(!menuOpen);
+            }}
+            aria-label="Toggle menu"
+          >
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
         )}
 
-        {user && (
-          <>
-            <Link to="/projects" className="link" onClick={() => setMenuOpen(false)}>Projects</Link>
-            <Link to="/editor" className="link" onClick={() => setMenuOpen(false)}>Editor</Link>
-            <Link to="/friends" className="link" onClick={() => setMenuOpen(false)}>Friends</Link>
-            <Link to="/collab" className="link" onClick={() => setMenuOpen(false)}>Collab Room</Link>
+        {/* Navigation Links */}
+        <div className={`nav-right ${menuOpen ? "open" : ""} ${isMobile ? "mobile" : ""}`}>
+          {!user ? (
+            <div className="nav-links">
+              <Link to="/register" className="nav-link" onClick={() => setMenuOpen(false)}>
+                Register
+              </Link>
+              <Link to="/login" className="nav-link" onClick={() => setMenuOpen(false)}>
+                Login
+              </Link>
+            </div>
+          ) : (
+            <div className="nav-links">
+              <Link to="/projects" className="nav-link" onClick={() => setMenuOpen(false)}>
+                Projects
+              </Link>
+              <Link to="/editor" className="nav-link" onClick={() => setMenuOpen(false)}>
+                Editor
+              </Link>
+              <Link to="/friends" className="nav-link" onClick={() => setMenuOpen(false)}>
+                Friends
+              </Link>
+              <Link to="/collab" className="nav-link" onClick={() => setMenuOpen(false)}>
+                Collab Room
+              </Link>
 
-            {user.role_id === 2 && (
-              <Link to="/admin" className="link" onClick={() => setMenuOpen(false)}>Admin Dashboard</Link>
-            )}
-            {user.role === "admin" && (
-              <Link to="/admin" className="link" onClick={() => setMenuOpen(false)}>Admin Dashboard</Link>
-            )}
+              {(user.role_id === 2 || user.role === "admin") && (
+                <Link to="/admin" className="nav-link" onClick={() => setMenuOpen(false)}>
+                  Admin Dashboard
+                </Link>
+              )}
 
-            <Link to="/profile" className="link" onClick={() => setMenuOpen(false)}>Profile</Link>
+              <Link to="/profile" className="nav-link" onClick={() => setMenuOpen(false)}>
+                Profile
+              </Link>
 
-            <button
-              onClick={() => {
-                logout();
-                setMenuOpen(false);
-              }}
-              className="logoutBtn"
-            >
-              Logout
-            </button>
-          </>
+              <button
+                onClick={() => {
+                  logout();
+                  setMenuOpen(false);
+                }}
+                className="logout-btn"
+              >
+                Logout
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Mobile Overlay */}
+        {isMobile && menuOpen && (
+          <div 
+            className="mobile-overlay" 
+            onClick={() => setMenuOpen(false)}
+          ></div>
         )}
       </div>
     </nav>
