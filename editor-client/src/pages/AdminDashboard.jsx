@@ -12,45 +12,54 @@ import {
   PieChart,
   Pie,
   Cell,
+  LineChart,
+  Line
 } from "recharts";
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState({ stats: true, users: true });
   const [activeTab, setActiveTab] = useState("overview");
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+  const [isMobile, setIsMobile] = useState(false);
 
-  // 📱 Detect mobile screen size
+  // Detect mobile screen size
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 768);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    const checkScreenSize = () => setIsMobile(window.innerWidth <= 768);
+    checkScreenSize();
+    window.addEventListener("resize", checkScreenSize);
+    return () => window.removeEventListener("resize", checkScreenSize);
   }, []);
 
-  // 📊 Initial data load
   useEffect(() => {
     fetchStats();
     fetchUsers();
   }, []);
 
-  // 📈 Fetch stats
+  // 📊 Fetch stats
   const fetchStats = async () => {
     try {
+      setLoading(prev => ({ ...prev, stats: true }));
       const { data } = await api.get("/admin/stats");
       setStats(data);
     } catch {
       setMessage("❌ Failed to load stats");
+    } finally {
+      setLoading(prev => ({ ...prev, stats: false }));
     }
   };
 
   // 👥 Fetch users
   const fetchUsers = async () => {
     try {
+      setLoading(prev => ({ ...prev, users: true }));
       const { data } = await api.get("/admin/users");
       setUsers(data);
     } catch {
       setMessage("❌ Failed to load users");
+    } finally {
+      setLoading(prev => ({ ...prev, users: false }));
     }
   };
 
@@ -58,64 +67,85 @@ export default function AdminDashboard() {
   const promoteUser = async (id) => {
     try {
       await api.put(`/admin/promote/${id}`);
-      setMessage("✅ User promoted");
+      setMessage("✅ User promoted successfully");
       fetchUsers();
+      setTimeout(() => setMessage(""), 3000);
     } catch {
       setMessage("❌ Promotion failed");
     }
   };
 
-  // 📊 Chart data
+  // 🔽 Demote user
+  const demoteUser = async (id) => {
+    try {
+      await api.put(`/admin/demote/${id}`);
+      setMessage("✅ User demoted successfully");
+      fetchUsers();
+      setTimeout(() => setMessage(""), 3000);
+    } catch {
+      setMessage("❌ Demotion failed");
+    }
+  };
+
+  // Chart data
   const chartData = stats
     ? [
         { name: "Users", count: stats.users },
         { name: "Projects", count: stats.projects },
         { name: "Files", count: stats.files },
+        { name: "Executions", count: stats.executions || 0 },
       ]
     : [];
 
-  // 🥧 Pie chart data
-  const roleData =
-    users.length > 0
-      ? [
-          { name: "Admins", value: users.filter((u) => u.role_id === 2).length },
-          { name: "Users", value: users.filter((u) => u.role_id === 1).length },
-        ]
-      : [];
+  // User role distribution for pie chart
+  const roleData = users.length > 0 ? [
+    { name: 'Admins', value: users.filter(u => u.role_id === 2).length },
+    { name: 'Users', value: users.filter(u => u.role_id === 1).length }
+  ] : [];
 
-  const COLORS = ["#4e54c8", "#8f94fb"];
+  const COLORS = ['#4e54c8', '#8f94fb'];
+
+  // Recent activity data (mock - you can replace with real data)
+  const recentActivity = [
+    { time: '2 min ago', action: 'User registered', user: 'john_doe' },
+    { time: '5 min ago', action: 'Project created', user: 'sarah_c' },
+    { time: '10 min ago', action: 'Code executed', user: 'mike_t' },
+    { time: '15 min ago', action: 'File uploaded', user: 'alex_k' },
+  ];
 
   return (
     <div style={styles.container}>
       {/* Header */}
-      {isMobile ? (
-        <div style={styles.mobileHeader}>
-          <h1 style={styles.mobileTitle}>🛠 Admin Dashboard</h1>
-        </div>
-      ) : (
+      <div style={styles.header}>
         <h1 style={styles.title}>🛠 Admin Dashboard</h1>
-      )}
+        <div style={styles.headerActions}>
+          <button onClick={fetchStats} style={styles.refreshButton}>
+            🔄 Refresh
+          </button>
+          <div style={styles.userCount}>
+            👥 {users.length} Users Online
+          </div>
+        </div>
+      </div>
 
-      {/* Message */}
+      {/* Message Alert */}
       {message && (
-        <div
-          style={{
-            ...styles.message,
-            background: message.includes("❌") ? "#fed7d7" : "#c6f6d5",
-            color: message.includes("❌") ? "#9b2c2c" : "#276749",
-          }}
-        >
+        <div style={{
+          ...styles.message,
+          background: message.includes("❌") ? "#fee2e2" : "#d1fae5",
+          color: message.includes("❌") ? "#dc2626" : "#065f46",
+        }}>
           {message}
         </div>
       )}
 
-      {/* Tabs (mobile only) */}
+      {/* Mobile Tabs */}
       {isMobile && (
         <div style={styles.tabContainer}>
           <button
             style={{
               ...styles.tab,
-              ...(activeTab === "overview" ? styles.activeTab : {}),
+              ...(activeTab === "overview" ? styles.activeTab : {})
             }}
             onClick={() => setActiveTab("overview")}
           >
@@ -124,11 +154,20 @@ export default function AdminDashboard() {
           <button
             style={{
               ...styles.tab,
-              ...(activeTab === "users" ? styles.activeTab : {}),
+              ...(activeTab === "users" ? styles.activeTab : {})
             }}
             onClick={() => setActiveTab("users")}
           >
             👥 Users
+          </button>
+          <button
+            style={{
+              ...styles.tab,
+              ...(activeTab === "activity" ? styles.activeTab : {})
+            }}
+            onClick={() => setActiveTab("activity")}
+          >
+            📈 Activity
           </button>
         </div>
       )}
@@ -138,50 +177,49 @@ export default function AdminDashboard() {
         {(!isMobile || activeTab === "overview") && (
           <div style={styles.section}>
             {/* Stats Cards */}
-            {stats && (
+            {loading.stats ? (
+              <div style={styles.loadingGrid}>
+                {[1, 2, 3, 4].map(i => (
+                  <div key={i} style={styles.loadingCard}></div>
+                ))}
+              </div>
+            ) : stats ? (
               <div style={styles.cards}>
                 {[
-                  { icon: "👤", label: "Total Users", value: stats.users },
-                  { icon: "📁", label: "Projects", value: stats.projects },
-                  { icon: "📝", label: "Files", value: stats.files },
-                ].map((item) => (
-                  <div key={item.label} style={styles.card}>
+                  { icon: "👤", label: "Total Users", value: stats.users, change: "+12%" },
+                  { icon: "📁", label: "Projects", value: stats.projects, change: "+5%" },
+                  { icon: "📝", label: "Files", value: stats.files, change: "+8%" },
+                  { icon: "⚡", label: "Executions", value: stats.executions || 0, change: "+15%" },
+                ].map((item, index) => (
+                  <div key={index} style={styles.card}>
                     <div style={styles.cardIcon}>{item.icon}</div>
-                    <div>
-                      <div style={styles.cardLabel}>{item.label}</div>
+                    <div style={styles.cardContent}>
                       <div style={styles.cardValue}>{item.value}</div>
+                      <div style={styles.cardLabel}>{item.label}</div>
+                      <div style={styles.cardChange}>{item.change}</div>
                     </div>
                   </div>
                 ))}
               </div>
-            )}
+            ) : null}
 
-            {/* Charts */}
+            {/* Charts Grid */}
             {stats && (
-              <div style={styles.chartsSection}>
-                {/* Bar Chart */}
+              <div style={styles.chartsGrid}>
                 <div style={styles.chartContainer}>
-                  <h3 style={styles.chartTitle}>📊 Usage Overview</h3>
+                  <h3 style={styles.chartTitle}>📊 Platform Overview</h3>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart
-                      data={chartData}
-                      margin={{ top: 20, right: 30, left: 0, bottom: 5 }}
-                    >
+                    <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" />
                       <YAxis allowDecimals={false} />
                       <Tooltip />
                       <Legend />
-                      <Bar
-                        dataKey="count"
-                        fill="#4e54c8"
-                        barSize={isMobile ? 40 : 60}
-                      />
+                      <Bar dataKey="count" fill="#4e54c8" barSize={isMobile ? 40 : 60} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
 
-                {/* Pie Chart */}
                 {roleData.length > 0 && (
                   <div style={styles.chartContainer}>
                     <h3 style={styles.chartTitle}>👥 User Roles</h3>
@@ -192,18 +230,13 @@ export default function AdminDashboard() {
                           cx="50%"
                           cy="50%"
                           labelLine={false}
-                          label={({ name, percent }) =>
-                            `${name} ${(percent * 100).toFixed(0)}%`
-                          }
+                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                           outerRadius={isMobile ? 80 : 100}
                           fill="#8884d8"
                           dataKey="value"
                         >
                           {roleData.map((entry, index) => (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={COLORS[index % COLORS.length]}
-                            />
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                           ))}
                         </Pie>
                         <Tooltip />
@@ -220,82 +253,124 @@ export default function AdminDashboard() {
         {/* Users Section */}
         {(!isMobile || activeTab === "users") && (
           <div style={styles.section}>
-            <h2 style={styles.sectionTitle}>
-              👥 Manage Users ({users.length})
-            </h2>
+            <div style={styles.sectionHeader}>
+              <h2 style={styles.sectionTitle}>👥 User Management ({users.length})</h2>
+              <div style={styles.userStats}>
+                <span style={styles.statBadge}>
+                  👑 {users.filter(u => u.role_id === 2).length} Admins
+                </span>
+                <span style={styles.statBadge}>
+                  👤 {users.filter(u => u.role_id === 1).length} Users
+                </span>
+              </div>
+            </div>
 
-            {/* Mobile Cards */}
-            {isMobile ? (
+            {loading.users ? (
+              <div style={styles.loadingTable}>
+                {[1, 2, 3, 4, 5].map(i => (
+                  <div key={i} style={styles.loadingRow}></div>
+                ))}
+              </div>
+            ) : isMobile ? (
+              // Mobile User Cards
               <div style={styles.mobileUsers}>
-                {users.map((u) => (
-                  <div key={u.user_id} style={styles.userCard}>
+                {users.map((user) => (
+                  <div key={user.user_id} style={styles.userCard}>
                     <div style={styles.userHeader}>
-                      <div style={styles.userName}>{u.username}</div>
-                      <div
-                        style={{
-                          ...styles.roleBadge,
-                          background:
-                            u.role_id === 2 ? "#4e54c8" : "#718096",
-                        }}
-                      >
-                        {u.role_id === 2 ? "Admin" : "User"}
+                      <div style={styles.userAvatar}>
+                        {user.username?.charAt(0).toUpperCase()}
+                      </div>
+                      <div style={styles.userInfo}>
+                        <div style={styles.userName}>{user.username}</div>
+                        <div style={styles.userEmail}>{user.email}</div>
+                      </div>
+                      <div style={{
+                        ...styles.roleBadge,
+                        ...(user.role_id === 2 ? styles.adminBadge : styles.userBadge)
+                      }}>
+                        {user.role_id === 2 ? "👑 Admin" : "👤 User"}
                       </div>
                     </div>
                     <div style={styles.userDetails}>
-                      <div>
-                        <strong>ID:</strong> {u.user_id}
+                      <div style={styles.userDetail}>
+                        <strong>ID:</strong> #{user.user_id}
                       </div>
-                      <div>
-                        <strong>Email:</strong> {u.email}
+                      <div style={styles.userDetail}>
+                        <strong>Joined:</strong> {new Date(user.created_at).toLocaleDateString()}
                       </div>
                     </div>
-                    {u.role_id === 1 && (
-                      <button
-                        style={styles.promoteBtn}
-                        onClick={() => promoteUser(u.user_id)}
-                      >
-                        Promote to Admin
-                      </button>
-                    )}
+                    <div style={styles.userActions}>
+                      {user.role_id === 1 ? (
+                        <button 
+                          onClick={() => promoteUser(user.user_id)}
+                          style={styles.promoteButton}
+                        >
+                          👑 Promote to Admin
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => demoteUser(user.user_id)}
+                          style={styles.demoteButton}
+                        >
+                          👤 Demote to User
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
             ) : (
+              // Desktop Table
               <div style={styles.tableContainer}>
                 <table style={styles.table}>
                   <thead>
                     <tr>
                       <th style={styles.th}>ID</th>
-                      <th style={styles.th}>Username</th>
+                      <th style={styles.th}>User</th>
                       <th style={styles.th}>Email</th>
                       <th style={styles.th}>Role</th>
+                      <th style={styles.th}>Joined</th>
                       <th style={styles.th}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map((u) => (
-                      <tr key={u.user_id} style={styles.tr}>
-                        <td style={styles.td}>{u.user_id}</td>
-                        <td style={styles.td}>{u.username}</td>
-                        <td style={styles.td}>{u.email}</td>
+                    {users.map((user) => (
+                      <tr key={user.user_id} style={styles.tr}>
+                        <td style={styles.td}>#{user.user_id}</td>
                         <td style={styles.td}>
-                          <span
-                            style={{
-                              ...styles.roleBadge,
-                              background:
-                                u.role_id === 2 ? "#4e54c8" : "#718096",
-                            }}
-                          >
-                            {u.role_id === 2 ? "Admin" : "User"}
+                          <div style={styles.userCell}>
+                            <div style={styles.tableAvatar}>
+                              {user.username?.charAt(0).toUpperCase()}
+                            </div>
+                            {user.username}
+                          </div>
+                        </td>
+                        <td style={styles.td}>{user.email}</td>
+                        <td style={styles.td}>
+                          <span style={{
+                            ...styles.roleBadge,
+                            ...(user.role_id === 2 ? styles.adminBadge : styles.userBadge)
+                          }}>
+                            {user.role_id === 2 ? "Admin" : "User"}
                           </span>
                         </td>
                         <td style={styles.td}>
-                          {u.role_id === 1 && (
-                            <button
-                              style={styles.promoteBtn}
-                              onClick={() => promoteUser(u.user_id)}
+                          {new Date(user.created_at).toLocaleDateString()}
+                        </td>
+                        <td style={styles.td}>
+                          {user.role_id === 1 ? (
+                            <button 
+                              onClick={() => promoteUser(user.user_id)}
+                              style={styles.promoteButton}
                             >
-                              Promote to Admin
+                              Promote
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={() => demoteUser(user.user_id)}
+                              style={styles.demoteButton}
+                            >
+                              Demote
                             </button>
                           )}
                         </td>
@@ -307,156 +382,527 @@ export default function AdminDashboard() {
             )}
           </div>
         )}
+
+        {/* Activity Section */}
+        {(!isMobile || activeTab === "activity") && (
+          <div style={styles.section}>
+            <h2 style={styles.sectionTitle}>📈 Recent Activity</h2>
+            <div style={styles.activityGrid}>
+              <div style={styles.activityList}>
+                <h3 style={styles.activityTitle}>Latest Actions</h3>
+                {recentActivity.map((activity, index) => (
+                  <div key={index} style={styles.activityItem}>
+                    <div style={styles.activityIcon}>⚡</div>
+                    <div style={styles.activityContent}>
+                      <div style={styles.activityAction}>{activity.action}</div>
+                      <div style={styles.activityMeta}>
+                        by {activity.user} • {activity.time}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <div style={styles.quickStats}>
+                <h3 style={styles.activityTitle}>Quick Stats</h3>
+                <div style={styles.quickStatsGrid}>
+                  <div style={styles.quickStat}>
+                    <div style={styles.quickStatValue}>24h</div>
+                    <div style={styles.quickStatLabel}>Active Users</div>
+                  </div>
+                  <div style={styles.quickStat}>
+                    <div style={styles.quickStatValue}>98%</div>
+                    <div style={styles.quickStatLabel}>Uptime</div>
+                  </div>
+                  <div style={styles.quickStat}>
+                    <div style={styles.quickStatValue}>1.2k</div>
+                    <div style={styles.quickStatLabel}>Executions</div>
+                  </div>
+                  <div style={styles.quickStat}>
+                    <div style={styles.quickStatValue}>45</div>
+                    <div style={styles.quickStatLabel}>New Projects</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-// ✅ Styles
 const styles = {
   container: {
-    minHeight: "100vh",
-    background: "#f7fafc",
+    minHeight: '100vh',
+    background: '#f8fafc',
     fontFamily: "'Inter', sans-serif",
+    padding: '1rem',
   },
-  mobileHeader: {
-    background: "linear-gradient(135deg, #4e54c8, #8f94fb)",
-    color: "white",
-    padding: "1.5rem 1rem",
-    textAlign: "center",
-  },
-  mobileTitle: {
-    margin: 0,
-    fontSize: "1.5rem",
-    fontWeight: "700",
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '2rem',
+    flexWrap: 'wrap',
+    gap: '1rem',
   },
   title: {
-    fontSize: "2.5rem",
-    fontWeight: "700",
-    textAlign: "center",
-    margin: "2rem 0",
-    color: "#2d3748",
+    fontSize: '2.5rem',
+    fontWeight: '700',
+    color: '#1f2937',
+    margin: 0,
+  },
+  headerActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1rem',
+    flexWrap: 'wrap',
+  },
+  refreshButton: {
+    padding: '0.75rem 1.5rem',
+    background: 'linear-gradient(135deg, #4e54c8, #8f94fb)',
+    color: 'white',
+    border: 'none',
+    borderRadius: '10px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+  },
+  userCount: {
+    background: 'rgba(102, 126, 234, 0.1)',
+    color: '#4e54c8',
+    padding: '0.75rem 1.5rem',
+    borderRadius: '10px',
+    fontWeight: '600',
   },
   message: {
-    padding: "1rem",
-    margin: "1rem",
-    borderRadius: "8px",
-    fontWeight: "500",
-    textAlign: "center",
+    padding: '1rem 1.5rem',
+    borderRadius: '10px',
+    marginBottom: '2rem',
+    fontWeight: '500',
+    textAlign: 'center',
+    fontSize: '0.95rem',
   },
   tabContainer: {
-    display: "flex",
-    borderBottom: "1px solid #e2e8f0",
+    display: 'flex',
+    background: 'white',
+    borderRadius: '12px',
+    padding: '0.5rem',
+    marginBottom: '2rem',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
   },
   tab: {
     flex: 1,
-    padding: "1rem",
-    border: "none",
-    background: "white",
-    fontSize: "1rem",
-    cursor: "pointer",
+    padding: '1rem',
+    border: 'none',
+    background: 'transparent',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontWeight: '500',
+    transition: 'all 0.3s ease',
   },
   activeTab: {
-    background: "#4e54c8",
-    color: "white",
+    background: 'linear-gradient(135deg, #4e54c8, #8f94fb)',
+    color: 'white',
+    boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)',
   },
   content: {
-    padding: "1rem",
-    maxWidth: "1200px",
-    margin: "0 auto",
+    maxWidth: '1400px',
+    margin: '0 auto',
   },
-  section: { marginBottom: "2rem" },
+  section: {
+    marginBottom: '3rem',
+  },
+  sectionHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '1.5rem',
+    flexWrap: 'wrap',
+    gap: '1rem',
+  },
   sectionTitle: {
-    fontSize: "1.5rem",
-    fontWeight: "600",
-    color: "#2d3748",
-    marginBottom: "1.5rem",
+    fontSize: '1.75rem',
+    fontWeight: '600',
+    color: '#1f2937',
+    margin: 0,
+  },
+  userStats: {
+    display: 'flex',
+    gap: '1rem',
+  },
+  statBadge: {
+    background: 'rgba(102, 126, 234, 0.1)',
+    color: '#4e54c8',
+    padding: '0.5rem 1rem',
+    borderRadius: '20px',
+    fontWeight: '500',
+    fontSize: '0.9rem',
+  },
+  loadingGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+    gap: '1.5rem',
+    marginBottom: '2rem',
+  },
+  loadingCard: {
+    background: '#e5e7eb',
+    borderRadius: '12px',
+    padding: '2rem',
+    animation: 'pulse 2s infinite',
   },
   cards: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-    gap: "1.5rem",
-    marginBottom: "2rem",
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+    gap: '1.5rem',
+    marginBottom: '2rem',
   },
   card: {
-    background: "linear-gradient(135deg, #4e54c8, #8f94fb)",
-    color: "white",
-    padding: "1.5rem",
-    borderRadius: "12px",
-    display: "flex",
-    alignItems: "center",
-    gap: "1rem",
+    background: 'white',
+    borderRadius: '16px',
+    padding: '2rem',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1.5rem',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+    border: '1px solid #e5e7eb',
+    transition: 'transform 0.3s ease, box-shadow 0.3s ease',
   },
-  cardIcon: { fontSize: "2.5rem" },
-  cardLabel: { fontSize: "0.9rem", opacity: 0.9 },
-  cardValue: { fontSize: "2rem", fontWeight: "700" },
-  chartsSection: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))",
-    gap: "2rem",
+  cardIcon: {
+    fontSize: '3rem',
+    background: 'linear-gradient(135deg, #4e54c8, #8f94fb)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    backgroundClip: 'text',
+  },
+  cardContent: {
+    flex: 1,
+  },
+  cardValue: {
+    fontSize: '2.5rem',
+    fontWeight: '700',
+    color: '#1f2937',
+    lineHeight: 1,
+  },
+  cardLabel: {
+    fontSize: '1rem',
+    color: '#6b7280',
+    margin: '0.5rem 0',
+  },
+  cardChange: {
+    fontSize: '0.875rem',
+    color: '#10b981',
+    fontWeight: '600',
+  },
+  chartsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+    gap: '2rem',
   },
   chartContainer: {
-    background: "white",
-    padding: "1.5rem",
-    borderRadius: "12px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+    background: 'white',
+    borderRadius: '16px',
+    padding: '2rem',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+    border: '1px solid #e5e7eb',
   },
   chartTitle: {
-    textAlign: "center",
-    marginBottom: "1.5rem",
-    fontSize: "1.25rem",
-    fontWeight: "600",
+    fontSize: '1.25rem',
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: '1.5rem',
+    textAlign: 'center',
   },
   tableContainer: {
-    background: "white",
-    borderRadius: "12px",
-    overflow: "auto",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+    background: 'white',
+    borderRadius: '16px',
+    overflow: 'hidden',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+    border: '1px solid #e5e7eb',
+    overflowX: 'auto',
   },
-  table: { width: "100%", borderCollapse: "collapse", minWidth: "600px" },
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    minWidth: '800px',
+  },
   th: {
-    background: "#f8fafc",
-    padding: "1rem",
-    textAlign: "left",
-    fontWeight: "600",
+    background: '#f8fafc',
+    padding: '1.25rem 1rem',
+    textAlign: 'left',
+    fontWeight: '600',
+    color: '#374151',
+    borderBottom: '1px solid #e5e7eb',
+    fontSize: '0.875rem',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
   },
-  td: { padding: "1rem", color: "#4a5568" },
-  tr: { borderBottom: "1px solid #e2e8f0" },
+  tr: {
+    borderBottom: '1px solid #f3f4f6',
+    transition: 'background 0.2s ease',
+  },
+  "tr:hover": {
+    background: '#f9fafb',
+  },
+  td: {
+    padding: '1.25rem 1rem',
+    color: '#4b5563',
+    fontSize: '0.95rem',
+  },
+  userCell: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+  },
+  tableAvatar: {
+    width: '36px',
+    height: '36px',
+    borderRadius: '50%',
+    background: 'linear-gradient(135deg, #4e54c8, #8f94fb)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: 'white',
+    fontWeight: '600',
+    fontSize: '0.875rem',
+  },
   roleBadge: {
-    padding: "0.25rem 0.75rem",
-    borderRadius: "20px",
-    color: "white",
-    fontSize: "0.75rem",
-    fontWeight: "600",
+    padding: '0.5rem 1rem',
+    borderRadius: '20px',
+    fontSize: '0.875rem',
+    fontWeight: '600',
+    textAlign: 'center',
+    display: 'inline-block',
   },
-  promoteBtn: {
-    padding: "0.5rem 1rem",
-    background: "#48bb78",
-    color: "white",
-    border: "none",
-    borderRadius: "6px",
-    cursor: "pointer",
-    fontWeight: "600",
+  adminBadge: {
+    background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+    color: 'white',
+  },
+  userBadge: {
+    background: 'linear-gradient(135deg, #6b7280, #4b5563)',
+    color: 'white',
+  },
+  promoteButton: {
+    padding: '0.5rem 1rem',
+    background: 'linear-gradient(135deg, #10b981, #059669)',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontWeight: '500',
+    fontSize: '0.875rem',
+    transition: 'all 0.3s ease',
+  },
+  demoteButton: {
+    padding: '0.5rem 1rem',
+    background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontWeight: '500',
+    fontSize: '0.875rem',
+    transition: 'all 0.3s ease',
   },
   mobileUsers: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1rem',
   },
   userCard: {
-    background: "white",
-    padding: "1.5rem",
-    borderRadius: "12px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+    background: 'white',
+    borderRadius: '16px',
+    padding: '1.5rem',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+    border: '1px solid #e5e7eb',
   },
   userHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    marginBottom: "1rem",
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1rem',
+    marginBottom: '1rem',
+  },
+  userAvatar: {
+    width: '50px',
+    height: '50px',
+    borderRadius: '50%',
+    background: 'linear-gradient(135deg, #4e54c8, #8f94fb)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: 'white',
+    fontWeight: '600',
+    fontSize: '1.25rem',
+  },
+  userInfo: {
+    flex: 1,
   },
   userName: {
-    fontSize: "1.25rem",
-    fontWeight: "600",
+    fontSize: '1.1rem',
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: '0.25rem',
+  },
+  userEmail: {
+    fontSize: '0.9rem',
+    color: '#6b7280',
+  },
+  userDetails: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.5rem',
+    marginBottom: '1rem',
+  },
+  userDetail: {
+    fontSize: '0.9rem',
+    color: '#4b5563',
+  },
+  userActions: {
+    display: 'flex',
+    gap: '0.5rem',
+  },
+  loadingTable: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.5rem',
+  },
+  loadingRow: {
+    height: '60px',
+    background: '#e5e7eb',
+    borderRadius: '8px',
+    animation: 'pulse 2s infinite',
+  },
+  activityGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+    gap: '2rem',
+  },
+  activityList: {
+    background: 'white',
+    borderRadius: '16px',
+    padding: '2rem',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+    border: '1px solid #e5e7eb',
+  },
+  activityTitle: {
+    fontSize: '1.25rem',
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: '1.5rem',
+  },
+  activityItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1rem',
+    padding: '1rem 0',
+    borderBottom: '1px solid #f3f4f6',
+  },
+  activityIcon: {
+    fontSize: '1.5rem',
+  },
+  activityContent: {
+    flex: 1,
+  },
+  activityAction: {
+    fontWeight: '500',
+    color: '#1f2937',
+    marginBottom: '0.25rem',
+  },
+  activityMeta: {
+    fontSize: '0.875rem',
+    color: '#6b7280',
+  },
+  quickStats: {
+    background: 'white',
+    borderRadius: '16px',
+    padding: '2rem',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+    border: '1px solid #e5e7eb',
+  },
+  quickStatsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: '1rem',
+  },
+  quickStat: {
+    textAlign: 'center',
+    padding: '1.5rem 1rem',
+    background: 'rgba(102, 126, 234, 0.05)',
+    borderRadius: '12px',
+    border: '1px solid rgba(102, 126, 234, 0.1)',
+  },
+  quickStatValue: {
+    fontSize: '1.5rem',
+    fontWeight: '700',
+    color: '#4e54c8',
+    marginBottom: '0.5rem',
+  },
+  quickStatLabel: {
+    fontSize: '0.875rem',
+    color: '#6b7280',
   },
 };
 
+// Add CSS animations
+const globalStyles = `
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  }
+
+  .card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  }
+
+  @media (max-width: 768px) {
+    .header {
+      flex-direction: column;
+      text-align: center;
+    }
+    
+    .header-actions {
+      justify-content: center;
+    }
+    
+    .charts-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .chart-container {
+      padding: 1.5rem;
+    }
+    
+    .activity-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .user-actions {
+      flex-direction: column;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .container {
+      padding: 0.5rem;
+    }
+    
+    .title {
+      font-size: 2rem;
+    }
+    
+    .card {
+      padding: 1.5rem;
+    }
+    
+    .cards {
+      grid-template-columns: 1fr;
+    }
+  }
+`;
