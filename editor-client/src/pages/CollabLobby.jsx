@@ -548,86 +548,86 @@ const styles = {
   },
 };
 
-const globalStyles = `
-  @keyframes float {
-    0%, 100% { transform: translateY(0px) rotate(0deg); }
-    50% { transform: translateY(-20px) rotate(5deg); }
-  }
+// const globalStyles = `
+//   @keyframes float {
+//     0%, 100% { transform: translateY(0px) rotate(0deg); }
+//     50% { transform: translateY(-20px) rotate(5deg); }
+//   }
 
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
+//   @keyframes spin {
+//     0% { transform: rotate(0deg); }
+//     100% { transform: rotate(360deg); }
+//   }
 
-  input:focus {
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-  }
+//   input:focus {
+//     border-color: #667eea;
+//     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+//   }
 
-  button:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-  }
+//   button:hover:not(:disabled) {
+//     transform: translateY(-2px);
+//     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+//   }
 
-  .recent-item:hover {
-    background: #e0e7ff;
-    transform: translateX(5px);
-  }
+//   .recent-item:hover {
+//     background: #e0e7ff;
+//     transform: translateX(5px);
+//   }
 
-  .copy-btn:hover {
-    background: rgba(0, 0, 0, 0.1);
-  }
+//   .copy-btn:hover {
+//     background: rgba(0, 0, 0, 0.1);
+//   }
 
-  .feature:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-  }
+//   .feature:hover {
+//     transform: translateY(-5px);
+//     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+//   }
 
-  @media (max-width: 768px) {
-    .container {
-      gap: 1rem;
-    }
+//   @media (max-width: 768px) {
+//     .container {
+//       gap: 1rem;
+//     }
     
-    .card {
-      padding: 2rem 1.5rem;
-    }
+//     .card {
+//       padding: 2rem 1.5rem;
+//     }
     
-    .title {
-      font-size: 2rem;
-    }
+//     .title {
+//       font-size: 2rem;
+//     }
     
-    .subtitle {
-      font-size: 1rem;
-    }
+//     .subtitle {
+//       font-size: 1rem;
+//     }
     
-    .input-container {
-      flex-direction: column;
-    }
+//     .input-container {
+//       flex-direction: column;
+//     }
     
-    .features {
-      grid-template-columns: 1fr;
-      gap: 1rem;
-    }
+//     .features {
+//       grid-template-columns: 1fr;
+//       gap: 1rem;
+//     }
     
-    .header {
-      flex-direction: column;
-      text-align: center;
-    }
-  }
+//     .header {
+//       flex-direction: column;
+//       text-align: center;
+//     }
+//   }
 
-  @media (max-width: 480px) {
-    .card {
-      padding: 1.5rem 1rem;
-    }
+//   @media (max-width: 480px) {
+//     .card {
+//       padding: 1.5rem 1rem;
+//     }
     
-    .title {
-      font-size: 1.75rem;
-    }
+//     .title {
+//       font-size: 1.75rem;
+//     }
     
-    .btn-primary,
-    .btn-secondary {
-      padding: 0.875rem 1rem;
-      font-size: 1rem;
-    }
-  }
-`;
+//     .btn-primary,
+//     .btn-secondary {
+//       padding: 0.875rem 1rem;
+//       font-size: 1rem;
+//     }
+//   }
+// `;
