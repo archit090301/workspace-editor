@@ -14,7 +14,7 @@ function Login() {
     e.preventDefault();
     setIsLoading(true);
     setError("");
-    
+
     try {
       await login(email, password);
       navigate("/editor");
@@ -69,35 +69,39 @@ function Login() {
 
           <form onSubmit={handleSubmit} style={styles.form}>
             <div style={styles.inputGroup}>
-              <label style={styles.label}>Email Address</label>
-              <input
-                type="email"
-                placeholder="Enter your email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                style={styles.input}
-                disabled={isLoading}
-              />
-            </div>
+  <label htmlFor="email" style={styles.label}>Email Address</label>
+  <input
+    id="email"
+    type="email"
+    placeholder="Enter your email"
+    value={email}
+    onChange={(e) => setEmail(e.target.value)}
+    required
+    style={styles.input}
+    disabled={isLoading}
+  />
+</div>
+
 
             <div style={styles.inputGroup}>
-              <div style={styles.labelContainer}>
-                <label style={styles.label}>Password</label>
-                <Link to="/forgot-password" style={styles.forgotLink}>
-                  Forgot password?
-                </Link>
-              </div>
-              <input
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                style={styles.input}
-                disabled={isLoading}
-              />
-            </div>
+  <div style={styles.labelContainer}>
+    <label htmlFor="password" style={styles.label}>Password</label>
+    <Link to="/forgot-password" style={styles.forgotLink}>
+      Forgot password?
+    </Link>
+  </div>
+  <input
+    id="password"
+    type="password"
+    placeholder="Enter your password"
+    value={password}
+    onChange={(e) => setPassword(e.target.value)}
+    required
+    style={styles.input}
+    disabled={isLoading}
+  />
+</div>
+
 
             {error && (
               <div style={styles.errorContainer}>
@@ -106,11 +110,11 @@ function Login() {
               </div>
             )}
 
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               style={{
                 ...styles.button,
-                ...(isLoading ? styles.buttonLoading : {})
+                ...(isLoading ? styles.buttonLoading : {}),
               }}
               disabled={isLoading}
             >
@@ -447,9 +451,24 @@ const keyframes = `
   }
 `;
 
-// Inject styles
-const style = document.createElement('style');
-style.textContent = keyframes + styleSheet.cssRules[0].cssText;
-document.head.appendChild(style);
+if (typeof document !== "undefined") {
+  try {
+    const style = document.createElement("style");
+    // safely get cssRules text if available
+    let cssText = "";
+    if (
+      typeof document.styleSheets !== "undefined" &&
+      document.styleSheets.length > 0 &&
+      document.styleSheets[0].cssRules &&
+      document.styleSheets[0].cssRules.length > 0
+    ) {
+      cssText = document.styleSheets[0].cssRules[0].cssText || "";
+    }
+    style.textContent = keyframes + cssText;
+    document.head.appendChild(style);
+  } catch (err) {
+    console.warn("Style injection skipped:", err.message);
+  }
+}
 
 export default Login;
