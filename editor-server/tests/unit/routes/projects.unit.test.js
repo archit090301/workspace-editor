@@ -2,17 +2,14 @@ import { jest } from "@jest/globals";
 import request from "supertest";
 import express from "express";
 
-// ✅ Mock db.js for ESM
 const mockQuery = jest.fn();
 jest.unstable_mockModule("../../../db.js", () => ({
   default: { query: mockQuery },
 }));
 
-// ✅ Import after mock
 const { default: db } = await import("../../../db.js");
 const { default: projectsRouter } = await import("../../../routes/projects.js");
 
-// ✅ Setup Express app with mock auth
 const app = express();
 app.use(express.json());
 app.use((req, res, next) => {
@@ -22,14 +19,11 @@ app.use((req, res, next) => {
 });
 app.use("/api/projects", projectsRouter);
 
-// ✅ Test suite
 describe("Route: /api/projects (Unit with Mocked DB)", () => {
   afterEach(() => mockQuery.mockReset());
 
   it("creates a project successfully", async () => {
-    // 1️⃣ Insert project (INSERT query)
     mockQuery.mockResolvedValueOnce([[{ insertId: 42 }], []]);
-    // 2️⃣ Fetch the project just inserted
     mockQuery.mockResolvedValueOnce([
       [
         {

@@ -8,7 +8,6 @@ function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
-  // Detect mobile screen size
   useEffect(() => {
     const checkScreenSize = () => {
       setIsMobile(window.innerWidth <= 768);
@@ -19,7 +18,6 @@ function Navbar() {
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
-  // Close menu when clicking outside on mobile
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuOpen && isMobile && !event.target.closest('.navbar')) {
@@ -50,7 +48,6 @@ function Navbar() {
           </Link>
         </div>
 
-        {/* Hamburger Button - Only show on mobile */}
         {isMobile && (
           <button
             className={`hamburger-btn ${menuOpen ? "open" : ""}`}
@@ -66,7 +63,6 @@ function Navbar() {
           </button>
         )}
 
-        {/* Navigation Links */}
         <div className={`nav-right ${menuOpen ? "open" : ""} ${isMobile ? "mobile" : ""}`}>
           {!user ? (
             <div className="nav-links">
@@ -115,7 +111,6 @@ function Navbar() {
           )}
         </div>
 
-        {/* Mobile Overlay */}
         {isMobile && menuOpen && (
           <div 
             className="mobile-overlay" 

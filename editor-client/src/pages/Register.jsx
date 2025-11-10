@@ -393,7 +393,7 @@ const styles = {
 };
 
 // Add CSS animations
-const styleSheet = document.styleSheets[0];
+//  
 const keyframes = `
   @keyframes slideUp {
     from {

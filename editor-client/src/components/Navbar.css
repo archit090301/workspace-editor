@@ -1,4 +1,3 @@
-/* Navbar Base */
 .navbar {
   width: 100%;
   background: linear-gradient(135deg, #4e54c8, #8f94fb);
@@ -20,7 +19,6 @@
   position: relative;
 }
 
-/* Left Section - Brand */
 .nav-left {
   display: flex;
   align-items: center;
@@ -40,7 +38,6 @@
   transform: translateY(-1px);
 }
 
-/* Right Section - Navigation Links */
 .nav-right {
   display: flex;
   align-items: center;
@@ -69,7 +66,6 @@
   transform: translateY(-2px);
 }
 
-/* Logout Button */
 .logout-btn {
   padding: 0.5rem 1rem;
   border: 2px solid rgba(255, 255, 255, 0.3);
@@ -88,7 +84,6 @@
   transform: translateY(-2px);
 }
 
-/* Hamburger Button */
 .hamburger-btn {
   display: none;
   flex-direction: column;
@@ -112,7 +107,6 @@
   transform-origin: center;
 }
 
-/* Transform into X when open */
 .hamburger-btn.open span:nth-child(1) {
   transform: rotate(45deg) translate(6px, 6px);
 }
@@ -126,7 +120,6 @@
   transform: rotate(-45deg) translate(6px, -6px);
 }
 
-/* Mobile Overlay */
 .mobile-overlay {
   position: fixed;
   top: 0;
@@ -137,7 +130,6 @@
   z-index: 998;
 }
 
-/* Responsive Design */
 @media (max-width: 768px) {
   .nav-container {
     padding: 0.75rem 1rem;
@@ -151,7 +143,6 @@
     display: flex;
   }
 
-  /* Mobile Navigation Menu */
   .nav-right.mobile {
     position: fixed;
     top: 0;
@@ -214,7 +205,6 @@
   }
 }
 
-/* Medium screens (tablets) */
 @media (max-width: 1024px) and (min-width: 769px) {
   .nav-container {
     padding: 0.75rem 1.25rem;
@@ -235,7 +225,6 @@
   }
 }
 
-/* Animation for menu items */
 @keyframes slideInRight {
   from {
     opacity: 0;

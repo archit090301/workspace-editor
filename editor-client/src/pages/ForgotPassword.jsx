@@ -31,10 +31,8 @@ export default function ForgotPassword() {
           <button type="submit" style={styles.button}>Send reset link</button>
         </form>
 
-        {/* Always show user-friendly message */}
         {msg && <p style={styles.text}>{msg}</p>}
 
-        {/* Show reset link only in development */}
         {process.env.NODE_ENV === "development" && link && (
           <p style={{ fontSize: "0.8rem", color: "gray", marginTop: "0.5rem", textAlign: "center" }}>
             Dev link: <a href={link}>{link}</a>

@@ -21,6 +21,7 @@ export default function Projects() {
       const res = await fetchProjects();
       setProjects(res.data);
     } catch (err) {
+      console.error(err);
       setError("Failed to load projects");
       setProjects([]);
     } finally {
@@ -483,7 +484,7 @@ const styles = {
 };
 
 // Add CSS animations
-const styleSheet = document.styleSheets[0];
+// const styleSheet = document.styleSheets[0];
 const keyframes = `
   @keyframes slideUp {
     from {

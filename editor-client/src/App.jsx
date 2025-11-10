@@ -20,10 +20,8 @@ import CollabLobby from "./pages/CollabLobby";
 import CollabRoom from "./pages/CollabRoom";
 import AdminDashboard from "./pages/AdminDashboard";
 
-// 🆕 Import the new popup component
 import InvitePopup from "./components/InvitePopup";
 
-// Small wrapper to restrict access to admins only
 function AdminOnly() {
   const { user } = useAuth();
   if (!user || user.role_id !== 2) {
@@ -38,7 +36,6 @@ function App() {
       <Router>
         <Navbar />
         <Routes>
-          {/* Public routes with redirect if logged in */}
           <Route element={<RedirectIfAuth />}>
             <Route path="/" element={<Home />} />
             <Route path="/register" element={<Register />} />
@@ -48,10 +45,9 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
 
-          {/* Protected routes */}
           <Route element={<ProtectedRoute />}>
             <Route path="/projects" element={<Projects />} />
-            <Route path="/editor" element={<Editor />} /> {/* blank editor */}
+            <Route path="/editor" element={<Editor />} /> 
             <Route path="/projects/:projectId/files" element={<Files />} />
             <Route path="/files/:fileId" element={<Editor />} />
             <Route path="/projects/:projectId/files/:fileId" element={<Editor />} />
@@ -61,12 +57,10 @@ function App() {
             <Route path="/collab" element={<CollabLobby />} />
             <Route path="/collab/:roomId" element={<CollabRoom />} />
 
-            {/* 🔒 Admin-only route */}
             <Route path="/admin" element={<AdminOnly />} />
           </Route>
         </Routes>
 
-        {/* 🆕 Global invite listener (appears on any route) */}
         <InvitePopup />
       </Router>
     </AuthProvider>

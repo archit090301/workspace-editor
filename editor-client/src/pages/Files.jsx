@@ -1,4 +1,3 @@
-// src/pages/ProjectEditor.jsx
 import { useAuth } from "../AuthContext";
 import { Navigate, useParams, useSearchParams } from "react-router-dom"; // ⭐ added useSearchParams
 import { useEffect, useState } from "react";
@@ -10,40 +9,34 @@ import { cpp } from "@codemirror/lang-cpp";
 import { oneDark } from "@codemirror/theme-one-dark";
 import api from "../api";
 
-// DB language IDs
 const dbLanguageMap = { javascript: 1, python: 2, cpp: 3, java: 4 };
 const idToLanguage = { 1: "javascript", 2: "python", 3: "cpp", 4: "java" };
 
-// Judge0 IDs
 const judge0LanguageMap = { javascript: 63, python: 71, cpp: 54, java: 62 };
 
 export default function ProjectEditor() {
   const { user, loading } = useAuth();
   const { projectId } = useParams();
-  const [searchParams] = useSearchParams(); // ⭐ read ?file= from URL
+  const [searchParams] = useSearchParams(); 
 
   const [files, setFiles] = useState([]);
   const [activeFile, setActiveFile] = useState(null);
   const [code, setCode] = useState("// write code here");
   const [language, setLanguage] = useState("javascript");
-  const [stdin, setStdin] = useState("");
+  const [stdin] = useState("");
   const [output, setOutput] = useState("");
   const [running, setRunning] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
   const [newFileName, setNewFileName] = useState("");
 
-  if (loading) return <p>Loading...</p>;
-  if (!user) return <Navigate to="/login" />;
 
-  // Fetch all files in this project
-  useEffect(() => {
+    useEffect(() => {
     api.get(`/projects/${projectId}/files`)
       .then((res) => setFiles(res.data))
       .catch((err) => console.error(err));
   }, [projectId]);
 
-  // ⭐ Auto-open file if ?file= is present
   useEffect(() => {
     const fileId = searchParams.get("file");
     if (fileId) {
@@ -58,7 +51,9 @@ export default function ProjectEditor() {
     }
   }, [searchParams]);
 
-  // Load file into editor
+  if (loading) return <p>Loading...</p>;
+  if (!user) return <Navigate to="/login" />;
+
   const openFile = async (file) => {
     try {
       const { data } = await api.get(`/files/${file.file_id}`);
@@ -70,7 +65,6 @@ export default function ProjectEditor() {
     }
   };
 
-  // Create a new file in project
   const createFile = async () => {
     if (!newFileName.trim()) return;
     try {
@@ -80,14 +74,13 @@ export default function ProjectEditor() {
       });
       setFiles([...files, data]);
       setNewFileName("");
-      openFile(data); // open new file immediately
+      openFile(data); 
     } catch (err) {
       console.error(err);
       alert("Could not create file");
     }
   };
 
-  // Run code
   const handleRun = async () => {
     setRunning(true);
     setOutput("Running...");
@@ -114,7 +107,6 @@ export default function ProjectEditor() {
     }
   };
 
-  // Save active file
   const handleSave = async () => {
     if (!activeFile) return;
     setSaving(true);
@@ -147,7 +139,6 @@ export default function ProjectEditor() {
 
   return (
     <div style={{ display: "flex", height: "100vh" }}>
-      {/* Sidebar with files */}
       <div style={{ width: "220px", borderRight: "1px solid #ddd", padding: "1rem" }}>
         <h3>Files in Project {projectId}</h3>
         <ul style={{ listStyle: "none", padding: 0 }}>
@@ -165,7 +156,6 @@ export default function ProjectEditor() {
                   textAlign: "left",
                   borderRadius: "4px",
                 }}
-                // ⭐ navigate with ?file=
                 onClick={() => window.location.href = `/projects/${projectId}?file=${f.file_id}`}
               >
                 {f.file_name}
@@ -185,7 +175,6 @@ export default function ProjectEditor() {
         </button>
       </div>
 
-      {/* Editor panel */}
       <div style={{ flex: 1, padding: "1rem" }}>
         <h2>
           {activeFile

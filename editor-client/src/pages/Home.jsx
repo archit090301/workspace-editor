@@ -251,18 +251,18 @@ if (typeof document !== 'undefined') {
 }
 
 // Add the hover classes to the buttons and cards
-const enhancedStyles = {
-  ...styles,
-  buttonPrimary: {
-    ...styles.buttonPrimary,
-    className: 'home-button-primary'
-  },
-  buttonSecondary: {
-    ...styles.buttonSecondary,
-    className: 'home-button-secondary'
-  },
-  featureCard: {
-    ...styles.featureCard,
-    className: 'home-feature-card'
-  }
-};
+// const enhancedStyles = {
+//   ...styles,
+//   buttonPrimary: {
+//     ...styles.buttonPrimary,
+//     className: 'home-button-primary'
+//   },
+//   buttonSecondary: {
+//     ...styles.buttonSecondary,
+//     className: 'home-button-secondary'
+//   },
+//   featureCard: {
+//     ...styles.featureCard,
+//     className: 'home-feature-card'
+//   }
+// };

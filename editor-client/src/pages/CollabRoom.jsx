@@ -182,10 +182,11 @@ export default function CollabRoom() {
   const handleMobileMenuAction = (action) => {
     setShowMobileMenu(false);
     switch (action) {
-      case 'invite': 
-        const friendSelect = document.getElementById('friend-select');
-        if (friendSelect?.value) inviteFriend(friendSelect.value);
-        break;
+      case 'invite': {
+    const friendSelect = document.getElementById('friend-select');
+    if (friendSelect?.value) inviteFriend(friendSelect.value);
+    break;
+  }
       case 'chat': setShowChat(true); break;
       case 'users': setShowUsers(true); break;
       case 'copy': navigator.clipboard.writeText(roomId); break;

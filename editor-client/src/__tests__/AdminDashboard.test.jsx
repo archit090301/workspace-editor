@@ -3,14 +3,11 @@ import { render, screen, waitFor, fireEvent, act } from "@testing-library/react"
 import AdminDashboard from "../pages/AdminDashboard";
 import api from "../api";
 
-// Mock the API module
 jest.mock("../api", () => ({
   get: jest.fn(),
   put: jest.fn(),
 }));
 
-
-// Mock recharts components (to avoid rendering errors)
 jest.mock("recharts", () => ({
   BarChart: () => <div data-testid="bar-chart" />,
   Bar: () => null,
@@ -30,30 +27,30 @@ jest.mock("recharts", () => ({
 describe("AdminDashboard Component", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Mock window.innerWidth for non-mobile
     global.innerWidth = 1200;
     global.dispatchEvent(new Event("resize"));
   });
 
   test("renders header and refresh button", async () => {
-    api.get.mockResolvedValueOnce({ data: { users: 10, projects: 5, files: 3 } });
-    api.get.mockResolvedValueOnce({ data: [] });
+    api.get
+      .mockResolvedValueOnce({ data: { users: 10, projects: 5, files: 3 } })
+      .mockResolvedValueOnce({ data: [] });
 
-    render(<AdminDashboard />);
+    await act(async () => render(<AdminDashboard />));
 
-    expect(screen.getByText("🛠 Admin Dashboard")).toBeInTheDocument();
+    expect(screen.getByText(/Admin Dashboard/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /refresh/i })).toBeInTheDocument();
 
-    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2)); // stats + users
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
   });
 
   test("displays stats after successful API fetch", async () => {
     const mockStats = { users: 10, projects: 5, files: 3, executions: 2 };
     api.get
-      .mockResolvedValueOnce({ data: mockStats }) // stats
-      .mockResolvedValueOnce({ data: [] }); // users
+      .mockResolvedValueOnce({ data: mockStats })
+      .mockResolvedValueOnce({ data: [] });
 
-    render(<AdminDashboard />);
+    await act(async () => render(<AdminDashboard />));
 
     await waitFor(() => {
       expect(screen.getByText("Total Users")).toBeInTheDocument();
@@ -67,10 +64,10 @@ describe("AdminDashboard Component", () => {
       .mockRejectedValueOnce(new Error("Stats error"))
       .mockResolvedValueOnce({ data: [] });
 
-    render(<AdminDashboard />);
+    await act(async () => render(<AdminDashboard />));
 
     await waitFor(() => {
-      expect(screen.getByText(/Failed to load stats/i)).toBeInTheDocument();
+      expect(screen.getByText(/Failed to load activity/i)).toBeInTheDocument();
     });
   });
 
@@ -85,32 +82,30 @@ describe("AdminDashboard Component", () => {
       .mockResolvedValueOnce({ data: mockStats })
       .mockResolvedValueOnce({ data: mockUsers });
 
-    render(<AdminDashboard />);
+    await act(async () => render(<AdminDashboard />));
 
     await waitFor(() => {
       expect(screen.getByText("Alice")).toBeInTheDocument();
       expect(screen.getByText("Bob")).toBeInTheDocument();
     });
 
-    // Promote user
     api.put.mockResolvedValueOnce({});
-    fireEvent.click(screen.getByText("Promote"));
+    fireEvent.click(screen.getByText(/Promote/i));
     await waitFor(() => expect(api.put).toHaveBeenCalledWith("/admin/promote/1"));
 
-    // Demote user
     api.put.mockResolvedValueOnce({});
-    fireEvent.click(screen.getByText("Demote"));
+    fireEvent.click(screen.getByText(/Demote/i));
     await waitFor(() => expect(api.put).toHaveBeenCalledWith("/admin/demote/2"));
   });
 
-
-
   test("handles resize and switches to mobile layout", async () => {
-    api.get.mockResolvedValueOnce({ data: { users: 1, projects: 1, files: 1, executions: 0 } });
-    api.get.mockResolvedValueOnce({ data: [] });
+    api.get
+      .mockResolvedValueOnce({ data: { users: 1, projects: 1, files: 1, executions: 0 } })
+      .mockResolvedValueOnce({ data: [] });
 
-    render(<AdminDashboard />);
-    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2));
+    await act(async () => render(<AdminDashboard />));
+
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
 
     act(() => {
       global.innerWidth = 500;

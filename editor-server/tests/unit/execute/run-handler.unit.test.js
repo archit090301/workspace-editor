@@ -2,7 +2,6 @@ import { jest } from "@jest/globals";
 import request from "supertest";
 import express from "express";
 
-// ✅ 1. Mock external modules
 const mockPost = jest.fn();
 const mockQuery = jest.fn();
 
@@ -14,12 +13,10 @@ jest.unstable_mockModule("../../../db.js", () => ({
   default: { query: mockQuery },
 }));
 
-// ✅ 2. Import after mocks
 const { default: axios } = await import("axios");
 const { default: db } = await import("../../../db.js");
 const { default: executeRouter } = await import("../../../routes/run.js");
 
-// ✅ 3. Setup express app with auth stub
 const app = express();
 app.use(express.json());
 app.use((req, res, next) => {
@@ -38,7 +35,7 @@ describe("Route: /api/execute (Mocked Judge0)", () => {
     mockPost.mockResolvedValueOnce({
       data: { stdout: "Hello World\n", stderr: null, compile_output: null, exit_code: 0 },
     });
-    mockQuery.mockResolvedValueOnce([[{ insertId: 1 }], []]); // DB insert mock
+    mockQuery.mockResolvedValueOnce([[{ insertId: 1 }], []]); 
 
     const res = await request(app)
       .post("/api/execute")
@@ -84,7 +81,7 @@ describe("Route: /api/execute (Mocked Judge0)", () => {
   it("returns 400 when code or language missing", async () => {
     const res = await request(app)
       .post("/api/execute")
-      .send({ code: "" }); // Missing language
+      .send({ code: "" }); 
 
     expect(res.statusCode).toBe(400);
     expect(res.body).toHaveProperty("error");

@@ -60,7 +60,6 @@ export default function Editor() {
   const [includeCode, setIncludeCode] = useState(true);
   const [includeStdin, setIncludeStdin] = useState(false);
   const [includeOutput, setIncludeOutput] = useState(true);
-  const [includeFileMeta, setIncludeFileMeta] = useState(true);
   
   const chatListRef = useRef(null);
   const editorRef = useRef(null);
@@ -74,10 +73,8 @@ export default function Editor() {
   
   useEffect(() => { scrollChatToEnd(); }, [chatMessages, scrollChatToEnd]);
 
-  if (loading) return <p>Loading...</p>;
-  if (!user) return <Navigate to="/login" />;
 
-  useEffect(() => {
+    useEffect(() => {
     if (!fileId) {
       setStatus("ready");
       api.get("/projects").then((res) => setProjects(res.data)).catch(console.error);
@@ -96,6 +93,10 @@ export default function Editor() {
         setStatus("error");
       });
   }, [fileId]);
+
+  if (loading) return <p>Loading...</p>;
+  if (!user) return <Navigate to="/login" />;
+
 
   const getExtensions = () => {
     switch (language) {
@@ -269,10 +270,6 @@ export default function Editor() {
     }
   };
 
-  const handleQuickAsk = (prompt) => {
-    setShowChat(true);
-    setChatInput(prompt);
-  };
 
   const insertAtCursor = (text) => {
     const view = editorRef.current;

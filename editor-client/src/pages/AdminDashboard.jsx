@@ -23,6 +23,8 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState({ stats: true, users: true });
   const [activeTab, setActiveTab] = useState("overview");
   const [isMobile, setIsMobile] = useState(false);
+  const [projects, setProjects] = useState([]);
+
 
   // Detect mobile screen size
   useEffect(() => {
@@ -44,7 +46,7 @@ export default function AdminDashboard() {
       const { data } = await api.get("/admin/stats");
       setStats(data);
     } catch {
-      setMessage("❌ Failed to load stats");
+      setMessage("Failed to load stats");
     } finally {
       setLoading(prev => ({ ...prev, stats: false }));
     }
@@ -105,13 +107,56 @@ export default function AdminDashboard() {
 
   const COLORS = ['#4e54c8', '#8f94fb'];
 
-  // Recent activity data (mock - you can replace with real data)
-  const recentActivity = [
-    { time: '2 min ago', action: 'User registered', user: 'john_doe' },
-    { time: '5 min ago', action: 'Project created', user: 'sarah_c' },
-    { time: '10 min ago', action: 'Code executed', user: 'mike_t' },
-    { time: '15 min ago', action: 'File uploaded', user: 'alex_k' },
-  ];
+  const [activity, setActivity] = useState([]);
+
+const fetchActivity = async () => {
+  try {
+    const { data } = await api.get("/admin/activity");
+    setActivity(data);
+  } catch {
+    setMessage("❌ Failed to load activity");
+  }
+};
+
+const fetchProjects = async () => {
+  try {
+    const { data } = await api.get("/admin/projects");
+    setProjects(data || []);
+  } catch {
+    setMessage("❌ Failed to load projects");
+  }
+};
+
+const handleModerate = async (id, action) => {
+  try {
+    await api.put(`/admin/projects/${id}/${action}`);
+    setMessage(`✅ Project ${action}d successfully`);
+    fetchProjects();
+    setTimeout(() => setMessage(""), 3000);
+  } catch {
+    setMessage(`❌ Failed to ${action} project`);
+  }
+};
+
+const handleDeleteProject = async (id) => {
+  try {
+    await api.delete(`/admin/projects/${id}`);
+    setMessage("🗑️ Project deleted");
+    fetchProjects();
+    setTimeout(() => setMessage(""), 3000);
+  } catch {
+    setMessage("❌ Failed to delete project");
+  }
+};
+
+
+useEffect(() => {
+  fetchStats();
+  fetchUsers();
+  fetchActivity();
+  fetchProjects();
+}, []);
+
 
   return (
     <div style={styles.container}>
@@ -383,6 +428,80 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {/* Project Moderation Section */}
+<div style={styles.section}>
+  <div style={styles.sectionHeader}>
+    <h2 style={styles.sectionTitle}>📁 Project Moderation ({projects.length})</h2>
+  </div>
+
+  <div style={styles.tableContainer}>
+    <table style={styles.table}>
+      <thead>
+        <tr>
+          <th style={styles.th}>ID</th>
+          <th style={styles.th}>Title</th>
+          <th style={styles.th}>Owner</th>
+          <th style={styles.th}>Status</th>
+          <th style={styles.th}>Created</th>
+          <th style={styles.th}>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {projects.map((p) => (
+          <tr key={p.project_id} style={styles.tr}>
+            <td style={styles.td}>#{p.project_id}</td>
+            <td style={styles.td}>{p.title || "Untitled"}</td>
+            <td style={styles.td}>{p.username || "Unknown"}</td>
+            <td style={styles.td}>
+              <span
+                style={{
+                  ...styles.roleBadge,
+                  ...(p.moderation_status === "approved"
+                    ? styles.approvedBadge
+                    : p.moderation_status === "rejected"
+                    ? styles.rejectedBadge
+                    : styles.pendingBadge),
+                }}
+              >
+                {p.moderation_status || "pending"}
+              </span>
+            </td>
+            <td style={styles.td}>
+              {new Date(p.created_at).toLocaleDateString()}
+            </td>
+            <td style={styles.td}>
+              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                <button
+                  onClick={() => handleModerate(p.project_id, "approve")}
+                  style={styles.promoteButton}
+                >
+                  Approve
+                </button>
+                <button
+                  onClick={() => handleModerate(p.project_id, "reject")}
+                  style={styles.demoteButton}
+                >
+                  Reject
+                </button>
+                <button
+                  onClick={() => handleDeleteProject(p.project_id)}
+                  style={{
+                    ...styles.demoteButton,
+                    background: "linear-gradient(135deg, #6b7280, #4b5563)",
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+
         {/* Activity Section */}
         {(!isMobile || activeTab === "activity") && (
           <div style={styles.section}>
@@ -390,39 +509,47 @@ export default function AdminDashboard() {
             <div style={styles.activityGrid}>
               <div style={styles.activityList}>
                 <h3 style={styles.activityTitle}>Latest Actions</h3>
-                {recentActivity.map((activity, index) => (
-                  <div key={index} style={styles.activityItem}>
-                    <div style={styles.activityIcon}>⚡</div>
-                    <div style={styles.activityContent}>
-                      <div style={styles.activityAction}>{activity.action}</div>
-                      <div style={styles.activityMeta}>
-                        by {activity.user} • {activity.time}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                {activity.map((item, i) => (
+  <div key={i} style={styles.activityItem}>
+    <div style={styles.activityIcon}>⚡</div>
+    <div style={styles.activityContent}>
+      <div style={styles.activityAction}>{item.action}</div>
+      <div style={styles.activityMeta}>
+        by {item.username} • {new Date(item.created_at).toLocaleString()}
+      </div>
+    </div>
+  </div>
+))}
+
               </div>
               
               <div style={styles.quickStats}>
                 <h3 style={styles.activityTitle}>Quick Stats</h3>
                 <div style={styles.quickStatsGrid}>
-                  <div style={styles.quickStat}>
-                    <div style={styles.quickStatValue}>24h</div>
-                    <div style={styles.quickStatLabel}>Active Users</div>
-                  </div>
-                  <div style={styles.quickStat}>
-                    <div style={styles.quickStatValue}>98%</div>
-                    <div style={styles.quickStatLabel}>Uptime</div>
-                  </div>
-                  <div style={styles.quickStat}>
-                    <div style={styles.quickStatValue}>1.2k</div>
-                    <div style={styles.quickStatLabel}>Executions</div>
-                  </div>
-                  <div style={styles.quickStat}>
-                    <div style={styles.quickStatValue}>45</div>
-                    <div style={styles.quickStatLabel}>New Projects</div>
-                  </div>
-                </div>
+  <div style={styles.quickStat}>
+    <div style={styles.quickStatValue}>{users.length}</div>
+    <div style={styles.quickStatLabel}>Active Users</div>
+  </div>
+  <div style={styles.quickStat}>
+    <div style={styles.quickStatValue}>
+      {stats ? `${Math.min(100, (stats.executions / 50).toFixed(0))}%` : "—"}
+    </div>
+    <div style={styles.quickStatLabel}>Uptime</div>
+  </div>
+  <div style={styles.quickStat}>
+    <div style={styles.quickStatValue}>
+      {stats ? stats.executions : "—"}
+    </div>
+    <div style={styles.quickStatLabel}>Executions</div>
+  </div>
+  <div style={styles.quickStat}>
+    <div style={styles.quickStatValue}>
+      {stats ? stats.projects : "—"}
+    </div>
+    <div style={styles.quickStatLabel}>New Projects</div>
+  </div>
+</div>
+
               </div>
             </div>
           </div>
@@ -838,71 +965,84 @@ const styles = {
     color: '#4e54c8',
     marginBottom: '0.5rem',
   },
+  approvedBadge: {
+  background: 'linear-gradient(135deg, #10b981, #059669)',
+  color: 'white',
+},
+rejectedBadge: {
+  background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+  color: 'white',
+},
+pendingBadge: {
+  background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
+  color: 'white',
+},
+
   quickStatLabel: {
     fontSize: '0.875rem',
     color: '#6b7280',
   },
 };
 
-// Add CSS animations
-const globalStyles = `
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-  }
+// // Add CSS animations
+// const globalStyles = `
+//   @keyframes pulse {
+//     0%, 100% { opacity: 1; }
+//     50% { opacity: 0.5; }
+//   }
 
-  button:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-  }
+//   button:hover:not(:disabled) {
+//     transform: translateY(-2px);
+//     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+//   }
 
-  .card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-  }
+//   .card:hover {
+//     transform: translateY(-5px);
+//     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+//   }
 
-  @media (max-width: 768px) {
-    .header {
-      flex-direction: column;
-      text-align: center;
-    }
+//   @media (max-width: 768px) {
+//     .header {
+//       flex-direction: column;
+//       text-align: center;
+//     }
     
-    .header-actions {
-      justify-content: center;
-    }
+//     .header-actions {
+//       justify-content: center;
+//     }
     
-    .charts-grid {
-      grid-template-columns: 1fr;
-    }
+//     .charts-grid {
+//       grid-template-columns: 1fr;
+//     }
     
-    .chart-container {
-      padding: 1.5rem;
-    }
+//     .chart-container {
+//       padding: 1.5rem;
+//     }
     
-    .activity-grid {
-      grid-template-columns: 1fr;
-    }
+//     .activity-grid {
+//       grid-template-columns: 1fr;
+//     }
     
-    .user-actions {
-      flex-direction: column;
-    }
-  }
+//     .user-actions {
+//       flex-direction: column;
+//     }
+//   }
 
-  @media (max-width: 480px) {
-    .container {
-      padding: 0.5rem;
-    }
+//   @media (max-width: 480px) {
+//     .container {
+//       padding: 0.5rem;
+//     }
     
-    .title {
-      font-size: 2rem;
-    }
+//     .title {
+//       font-size: 2rem;
+//     }
     
-    .card {
-      padding: 1.5rem;
-    }
+//     .card {
+//       padding: 1.5rem;
+//     }
     
-    .cards {
-      grid-template-columns: 1fr;
-    }
-  }
-`;
+//     .cards {
+//       grid-template-columns: 1fr;
+//     }
+//   }
+// `;

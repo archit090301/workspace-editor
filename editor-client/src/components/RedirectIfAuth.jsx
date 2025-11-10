@@ -6,8 +6,7 @@ export default function RedirectIfAuth() {
 
   if (loading) return <p>Loading...</p>;
 
-  // if logged in → redirect to projects dashboard
   if (user) return <Navigate to="/editor" />;
 
-  return <Outlet />; // otherwise render the child route (login/register)
+  return <Outlet />;
 }

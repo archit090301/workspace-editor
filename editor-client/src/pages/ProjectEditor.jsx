@@ -57,10 +57,7 @@ export default function ProjectEditor() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  if (loading) return <p>Loading...</p>;
-  if (!user) return <Navigate to="/login" />;
-
-  useEffect(() => {
+    useEffect(() => {
     api
       .get(`/projects/${projectId}/files`)
       .then((res) => setFiles(res.data))
@@ -102,6 +99,11 @@ export default function ProjectEditor() {
     const data = { openIds, activeId: activeTabId };
     localStorage.setItem(`tabs_${projectId}`, JSON.stringify(data));
   }, [openTabs, activeTabId, projectId]);
+
+  if (loading) return <p>Loading...</p>;
+  if (!user) return <Navigate to="/login" />;
+
+
 
   const openFile = async (file) => {
     try {

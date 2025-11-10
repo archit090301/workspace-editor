@@ -19,6 +19,7 @@ function Login() {
       await login(email, password);
       navigate("/editor");
     } catch (err) {
+      console.error(err);
       setError("Invalid email or password");
     } finally {
       setIsLoading(false);
@@ -367,7 +368,7 @@ const styles = {
 };
 
 // Add CSS animations
-const styleSheet = document.styleSheets[0];
+// const styleSheet = document.styleSheets[0];
 const keyframes = `
   @keyframes slideUp {
     from {

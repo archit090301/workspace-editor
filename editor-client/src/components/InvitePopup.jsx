@@ -6,24 +6,20 @@ export default function InvitePopup() {
   const [invite, setInvite] = useState(null);
   const navigate = useNavigate();
 
-  // 🧠 Listen for invites sent from backend
   useEffect(() => {
     socket.on("collab:invite", (data) => {
       setInvite(data);
     });
 
-    // Clean up listener when unmounting
     return () => socket.off("collab:invite");
   }, []);
 
-  // 🧭 When "Join" clicked
   const handleJoin = () => {
     if (!invite?.roomId) return;
     setInvite(null);
     navigate(`/collab/${invite.roomId}`);
   };
 
-  // ❌ When "Dismiss" clicked
   const handleDismiss = () => setInvite(null);
 
   if (!invite) return null;
@@ -51,7 +47,6 @@ export default function InvitePopup() {
   );
 }
 
-// -------------------- STYLES --------------------
 const overlay = {
   position: "fixed",
   bottom: 30,

@@ -53,7 +53,8 @@ export default function Profile() {
       setStatus("✅ Theme updated!");
       setTimeout(() => setStatus(""), 3000);
     } catch (err) {
-      setStatus("❌ Failed to save theme");
+      console.error(err);
+      setStatus("Failed to save theme");
       // Revert to previous theme on error
       const previousTheme = user.preferred_theme_id === 2 ? "dark" : "light";
       setTheme(previousTheme);
@@ -79,7 +80,8 @@ export default function Profile() {
       setStatus("✅ Profile updated!");
       setTimeout(() => setStatus(""), 3000);
     } catch (err) {
-      setStatus("❌ Failed to update profile");
+      console.error(err);
+      setStatus("Failed to update profile");
     }
   };
 
@@ -691,85 +693,85 @@ const styles = {
   },
 };
 
-// Add CSS animations and responsive styles
-const globalStyles = `
-  @keyframes float {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-10px); }
-  }
+// // Add CSS animations and responsive styles
+// const globalStyles = `
+//   @keyframes float {
+//     0%, 100% { transform: translateY(0px); }
+//     50% { transform: translateY(-10px); }
+//   }
 
-  input:focus {
-    border-color: #667eea !important;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
-  }
+//   input:focus {
+//     border-color: #667eea !important;
+//     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
+//   }
 
-  button:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-  }
+//   button:hover:not(:disabled) {
+//     transform: translateY(-2px);
+//     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+//   }
 
-  .theme-option:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-  }
+//   .theme-option:hover {
+//     transform: translateY(-2px);
+//     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+//   }
 
-  .stat-item:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
-  }
+//   .stat-item:hover {
+//     transform: translateY(-2px);
+//     box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+//   }
 
-  @media (max-width: 768px) {
-    .content {
-      flex-direction: column;
-    }
+//   @media (max-width: 768px) {
+//     .content {
+//       flex-direction: column;
+//     }
     
-    .card {
-      padding: 2rem 1.5rem;
-    }
+//     .card {
+//       padding: 2rem 1.5rem;
+//     }
     
-    .header {
-      flex-direction: column;
-      text-align: center;
-    }
+//     .header {
+//       flex-direction: column;
+//       text-align: center;
+//     }
     
-    .avatar-section {
-      flex-direction: column;
-      text-align: center;
-    }
+//     .avatar-section {
+//       flex-direction: column;
+//       text-align: center;
+//     }
     
-    .theme-options {
-      grid-template-columns: 1fr;
-    }
+//     .theme-options {
+//       grid-template-columns: 1fr;
+//     }
     
-    .info-grid {
-      grid-template-columns: 1fr;
-    }
+//     .info-grid {
+//       grid-template-columns: 1fr;
+//     }
     
-    .stats-grid {
-      grid-template-columns: repeat(3, 1fr);
-    }
+//     .stats-grid {
+//       grid-template-columns: repeat(3, 1fr);
+//     }
     
-    .edit-actions {
-      flex-direction: column;
-    }
-  }
+//     .edit-actions {
+//       flex-direction: column;
+//     }
+//   }
 
-  @media (max-width: 480px) {
-    .card {
-      padding: 1.5rem 1rem;
-    }
+//   @media (max-width: 480px) {
+//     .card {
+//       padding: 1.5rem 1rem;
+//     }
     
-    .title {
-      font-size: 1.75rem;
-    }
+//     .title {
+//       font-size: 1.75rem;
+//     }
     
-    .stats-grid {
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1rem;
-    }
+//     .stats-grid {
+//       grid-template-columns: repeat(3, 1fr);
+//       gap: 1rem;
+//     }
     
-    .stat-item {
-      padding: 1rem 0.5rem;
-    }
-  }
-`;
+//     .stat-item {
+//       padding: 1rem 0.5rem;
+//     }
+//   }
+// `;
