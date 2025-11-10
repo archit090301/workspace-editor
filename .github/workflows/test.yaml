@@ -1,0 +1,46 @@
+name: CI - Run Tests (Client & Server)
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18, 20]
+
+    steps:
+      # Step 1: Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Setup Node.js
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      # Step 3: Install and test CLIENT
+      - name: Install client dependencies
+        working-directory: ./editor-client
+        run: npm ci
+
+      - name: Run client tests
+        working-directory: ./editor-client
+        run: npm test -- --ci --watchAll=false
+
+      # Step 4: Install and test SERVER
+      - name: Install server dependencies
+        working-directory: ./editor-server
+        run: npm ci
+
+      - name: Run server tests
+        working-directory: ./editor-server
+        run: npm test -- --ci --watchAll=false
