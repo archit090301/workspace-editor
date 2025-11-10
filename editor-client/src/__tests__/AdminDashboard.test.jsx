@@ -67,7 +67,7 @@ describe("AdminDashboard Component", () => {
     await act(async () => render(<AdminDashboard />));
 
     await waitFor(() => {
-      expect(screen.getByText(/Failed to load activity/i)).toBeInTheDocument();
+      expect(screen.getByText(/Failed to load projects/i)).toBeInTheDocument();
     });
   });
 
