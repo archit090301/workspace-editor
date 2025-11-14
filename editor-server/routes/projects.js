@@ -4,6 +4,9 @@ import { ensureAuth } from "../middleware/auth.js";
 
 const router = express.Router();
 
+// --------------------------------------------------
+// GET USER PROJECTS (FILTER OUT DELETED)
+// --------------------------------------------------
 router.get("/", ensureAuth, async (req, res) => {
   try {
     const [rows] = await db.query(
@@ -12,9 +15,11 @@ router.get("/", ensureAuth, async (req, res) => {
               description,
               language,
               created_at,
-              updated_at
+              updated_at,
+              moderation_status
          FROM projects
         WHERE user_id = ?
+          AND is_deleted = 0
         ORDER BY updated_at DESC`,
       [req.user.user_id]
     );
@@ -25,6 +30,9 @@ router.get("/", ensureAuth, async (req, res) => {
   }
 });
 
+// --------------------------------------------------
+// CREATE PROJECT
+// --------------------------------------------------
 router.post("/", ensureAuth, async (req, res) => {
   const {
     project_name,
@@ -45,7 +53,7 @@ router.post("/", ensureAuth, async (req, res) => {
     );
 
     const [rows] = await db.query(
-      `SELECT project_id, project_name, description, content, language, created_at, updated_at
+      `SELECT project_id, project_name, description, content, language, created_at, updated_at, moderation_status
          FROM projects
         WHERE project_id = ?`,
       [result.insertId]
@@ -58,19 +66,28 @@ router.post("/", ensureAuth, async (req, res) => {
   }
 });
 
+// --------------------------------------------------
+// DELETE PROJECT (SOFT DELETE)
+// --------------------------------------------------
 router.delete("/:projectId", ensureAuth, async (req, res) => {
   try {
     const [proj] = await db.query(
-      "SELECT * FROM projects WHERE project_id = ? AND user_id = ?",
+      "SELECT * FROM projects WHERE project_id = ? AND user_id = ? AND is_deleted = 0",
       [req.params.projectId, req.user.user_id]
     );
+
     if (proj.length === 0) {
       return res.status(404).json({ error: "Project not found" });
     }
 
+    // Optional: delete files – keep if you want
     await db.query("DELETE FROM files WHERE project_id = ?", [req.params.projectId]);
 
-    await db.query("DELETE FROM projects WHERE project_id = ?", [req.params.projectId]);
+    // Soft delete main project
+    await db.query(
+      "UPDATE projects SET is_deleted = 1 WHERE project_id = ?",
+      [req.params.projectId]
+    );
 
     res.json({ success: true });
   } catch (err) {
@@ -79,12 +96,17 @@ router.delete("/:projectId", ensureAuth, async (req, res) => {
   }
 });
 
+// --------------------------------------------------
+// GET SPECIFIC PROJECT (FILTER OUT DELETED)
+// --------------------------------------------------
 router.get("/:id", ensureAuth, async (req, res) => {
   try {
     const [rows] = await db.query(
-      `SELECT project_id, project_name, description, content, language, created_at, updated_at
+      `SELECT project_id, project_name, description, content, language, created_at, updated_at, moderation_status
          FROM projects
-        WHERE project_id = ? AND user_id = ?`,
+        WHERE project_id = ? 
+          AND user_id = ?
+          AND is_deleted = 0`,
       [req.params.id, req.user.user_id]
     );
 
@@ -99,14 +121,18 @@ router.get("/:id", ensureAuth, async (req, res) => {
   }
 });
 
+// --------------------------------------------------
+// UPDATE PROJECT
+// --------------------------------------------------
 router.put("/:id", ensureAuth, async (req, res) => {
   const { project_name, description, content, language } = req.body;
 
   try {
     const [own] = await db.query(
-      "SELECT project_id FROM projects WHERE project_id = ? AND user_id = ?",
+      "SELECT project_id FROM projects WHERE project_id = ? AND user_id = ? AND is_deleted = 0",
       [req.params.id, req.user.user_id]
     );
+
     if (own.length === 0) {
       return res.status(404).json({ error: "Project not found" });
     }
@@ -123,7 +149,7 @@ router.put("/:id", ensureAuth, async (req, res) => {
     );
 
     const [rows] = await db.query(
-      `SELECT project_id, project_name, description, content, language, created_at, updated_at
+      `SELECT project_id, project_name, description, content, language, created_at, updated_at, moderation_status
          FROM projects
         WHERE project_id = ?`,
       [req.params.id]
@@ -136,13 +162,18 @@ router.put("/:id", ensureAuth, async (req, res) => {
   }
 });
 
+// --------------------------------------------------
+// GET FILES FOR PROJECT
+// --------------------------------------------------
 router.get("/:id/files", ensureAuth, async (req, res) => {
   try {
     const [rows] = await db.query(
       `SELECT f.file_id, f.file_name, f.language_id, f.created_at, f.updated_at
          FROM files f
          JOIN projects p ON f.project_id = p.project_id
-        WHERE f.project_id = ? AND p.user_id = ?`,
+        WHERE f.project_id = ? 
+          AND p.user_id = ?
+          AND p.is_deleted = 0`,
       [req.params.id, req.user.user_id]
     );
 
@@ -150,42 +181,6 @@ router.get("/:id/files", ensureAuth, async (req, res) => {
   } catch (err) {
     console.error("❌ Fetch project files error:", err.message);
     res.status(500).json({ error: "Could not fetch files for this project" });
-  }
-});
-
-router.post("/:id/files", ensureAuth, async (req, res) => {
-  const { file_name, language_id = null } = req.body;
-
-  if (!file_name || !file_name.trim()) {
-    return res.status(400).json({ error: "file_name is required" });
-  }
-
-  try {
-    const [proj] = await db.query(
-      "SELECT project_id FROM projects WHERE project_id = ? AND user_id = ?",
-      [req.params.id, req.user.user_id]
-    );
-    if (proj.length === 0) {
-      return res.status(404).json({ error: "Project not found" });
-    }
-
-    const [result] = await db.query(
-      `INSERT INTO files (project_id, file_name, language_id)
-       VALUES (?, ?, ?)`,
-      [req.params.id, file_name.trim(), language_id]
-    );
-
-    const [rows] = await db.query(
-      `SELECT file_id, file_name, language_id, created_at, updated_at
-         FROM files
-        WHERE file_id = ?`,
-      [result.insertId]
-    );
-
-    res.status(201).json(rows[0]);
-  } catch (err) {
-    console.error("❌ Create file in project error:", err.message);
-    res.status(500).json({ error: "Could not create file" });
   }
 });
 
