@@ -13,31 +13,40 @@ function makeToken() {
   return crypto.randomBytes(32).toString("hex"); 
 }
 
-async function sendResetEmail(to, link) {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    console.log("📧 Dev mode (no email creds). Reset link:", link);
-    return { sent: false };
-  }
+// async function sendResetEmail(to, link) {
+//   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+//     console.log("📧 Dev mode (no email creds). Reset link:", link);
+//     return { sent: false };
+//   }
 
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-  });
+//   const transporter = nodemailer.createTransport({
+//     service: "gmail",
+//     auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+//   });
 
-  await transporter.sendMail({
-    from: `"Editor" <${process.env.EMAIL_USER}>`,
-    to,
-    subject: "Reset your password",
-    html: `<p>Click the link to reset your password:</p><p><a href="${link}">${link}</a></p>`,
-  });
+//   await transporter.sendMail({
+//     from: `"Editor" <${process.env.EMAIL_USER}>`,
+//     to,
+//     subject: "Reset your password",
+//     html: `<p>Click the link to reset your password:</p><p><a href="${link}">${link}</a></p>`,
+//   });
 
-  return { sent: true };
-}
+//   return { sent: true };
+// }
 
 
 // ============================
 // REGISTER
 // ============================
+
+async function sendResetEmail(to, link) {
+  console.log("⚠️ EMAIL SENDING DISABLED");
+  console.log("Reset link:", link);
+
+  return { sent: false };
+}
+
+
 router.post(
   "/register",
   [
