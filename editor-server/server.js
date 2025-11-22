@@ -15,27 +15,48 @@ const __dirname = dirname(__filename);
 
 const app = express();
 
-const allowedOrigins = [
-  "http://localhost:5173",
-  "https://workspace-editor.vercel.app",
-  "https://editor-server-o637.onrender.com",
-];
+/*
+|--------------------------------------------------------------------------
+| CORS — FIXED + SMART + FUTURE-PROOF
+|--------------------------------------------------------------------------
+| Why this works:
+| - Allows localhost
+| - Allows main production URL
+| - Allows Render server itself
+| - Automatically allows ANY Vercel preview build:
+|   https://workspace-editor-xxxxx.vercel.app
+|--------------------------------------------------------------------------
+*/
 
+const allowOriginDynamic = (origin, callback) => {
+  if (!origin) return callback(null, true); // mobile apps / curl
+
+  const allowedExact = [
+    "http://localhost:5173",
+    "https://workspace-editor.vercel.app",
+    "https://editor-server-o637.onrender.com",
+  ];
+
+  const vercelRegex = /^https:\/\/workspace-editor-[a-zA-Z0-9-]+\.vercel\.app$/;
+
+  if (allowedExact.includes(origin) || vercelRegex.test(origin)) {
+    return callback(null, true);
+  }
+
+  return callback(new Error(`CORS not allowed for origin: ${origin}`));
+};
+
+// apply CORS middleware
 app.use(
   cors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error(`CORS not allowed for origin: ${origin}`));
-      }
-    },
+    origin: allowOriginDynamic,
     credentials: true,
   })
 );
 
 app.use(express.json());
 
+// SESSION STORE
 const MySQLStore = connectMySQL(session);
 
 const sessionStore = new MySQLStore({
@@ -45,8 +66,8 @@ const sessionStore = new MySQLStore({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   clearExpired: true,
-  checkExpirationInterval: 15 * 60 * 1000, 
-  expiration: 24 * 60 * 60 * 1000, 
+  checkExpirationInterval: 15 * 60 * 1000,
+  expiration: 24 * 60 * 60 * 1000,
 });
 
 app.set("trust proxy", 1);
@@ -59,19 +80,21 @@ app.use(
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: 7 * 24 * 60 * 60 * 1000,
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       secure: process.env.NODE_ENV === "production",
     },
   })
 );
 
+// PASSPORT
 import passportConfig from "./config/passport.js";
 passportConfig(passport);
 
 app.use(passport.initialize());
 app.use(passport.session());
 
+// ROUTES
 import authRoutes from "./routes/auth.js";
 import projectRoutes from "./routes/projects.js";
 import fileRoutes from "./routes/files.js";
@@ -90,10 +113,12 @@ app.use("/api/ai", aiRoutes);
 
 app.get("/", (req, res) => res.json({ ok: true }));
 
+// SOCKET.IO — FIXED CORS HERE ALSO
 const server = http.createServer(app);
+
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: allowOriginDynamic,
     credentials: true,
   },
 });
