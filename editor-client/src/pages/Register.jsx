@@ -25,8 +25,10 @@ export default function Register() {
   };
 
   const handleInputChange = (field, value) => {
-    setForm(prev => ({ ...prev, [field]: value }));
-  };
+  setForm(prev => ({ ...prev, [field]: value }));
+  setError(""); 
+};
+
 
   return (
     <div style={styles.wrapper} className="register-wrapper">
