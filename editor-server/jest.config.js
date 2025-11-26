@@ -1,9 +1,15 @@
 export default {
   testEnvironment: "node",
-  forceExit: true,          
-  detectOpenHandles: false, 
   verbose: true,
-  testTimeout: 10000,       
-  transform: {},            
-  moduleFileExtensions: ["js", "json"],
+  testTimeout: 20000,
+
+  forceExit: true,
+  detectOpenHandles: true,
+
+  // IMPORTANT: do NOT include extensionsToTreatAsEsm
+  transform: {},
+
+  moduleNameMapper: {
+    "^(\\.{1,2}/.*)\\.js$": "$1.js"
+  }
 };
