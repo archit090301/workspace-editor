@@ -1,13 +1,5 @@
 {
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://editor-server-o637.onrender.com https://judge0-ce.p.rapidapi.com; frame-ancestors 'none';"
-        }
-      ]
-    }
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/" }
   ]
 }
