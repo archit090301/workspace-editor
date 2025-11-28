@@ -1,11 +1,48 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+
+    <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+
+    <!-- Viewport -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Workspace</title>
+
+    <!-- Required: SEO meta description -->
+    <meta
+      name="description"
+      content="Workspace Editor – a fast online code editor with AI assistant, multi-language execution, project management, and cloud autosave."
+    />
+
+    <!-- Canonical URL (fixes duplicate-content SEO warnings) -->
+    <link rel="canonical" href="https://workspace-editor.vercel.app/" />
+
+    <!-- Theme color (required for Lighthouse PWA/SEO scoring) -->
+    <meta name="theme-color" content="#667eea" />
+
+    <!-- Open Graph (SEO preview on social platforms) -->
+    <meta property="og:title" content="Workspace Editor" />
+    <meta
+      property="og:description"
+      content="A beautiful cloud-based code editor with AI chat, compiler, execution history, and project management features."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://workspace-editor.vercel.app/" />
+    <meta property="og:image" content="/og-image.png" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Workspace Editor" />
+    <meta
+      name="twitter:description"
+      content="A cloud-powered interactive code editor with AI assistance."
+    />
+    <meta name="twitter:image" content="/og-image.png" />
+
+    <title>Workspace Editor</title>
   </head>
+
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
