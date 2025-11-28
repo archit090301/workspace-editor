@@ -2,7 +2,7 @@
 
 describe("Projects Page E2E", () => {
  beforeEach(() => {
-  cy.visit("http://localhost:5173/login");
+  cy.visit("https://workspace-editor.vercel.app/login");
 
   cy.get("input[placeholder='Enter your email']")
     .type("architcode39@gmail.com");
@@ -15,7 +15,7 @@ describe("Projects Page E2E", () => {
   cy.url().should("include", "/editor");
 
   // 🔥 FIX: Now go to the projects page
-  cy.visit("http://localhost:5173/projects");
+  cy.visit("https://workspace-editor.vercel.app/projects");
 });
 
 
