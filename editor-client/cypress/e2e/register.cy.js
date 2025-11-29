@@ -83,7 +83,7 @@ describe("Register Page", () => {
 
   it("shows loading state while submitting", () => {
     // slow fake backend
-    cy.intercept("POST", "/api/register", (req) => {
+    cy.intercept("POST", "/api/register", () => {
       return new Promise((resolve) => {
         setTimeout(
           () => resolve({ statusCode: 200, body: { success: true } }),
