@@ -67,6 +67,26 @@ router.put("/promote/:id", isAdmin, async (req, res) => {
   }
 });
 
+router.put("/demote/:id", isAdmin, async (req, res) => {
+  try {
+    const targetId = req.params.id;
+    const adminId = req.user.user_id;
+
+    await db.query("UPDATE users SET role_id = 1 WHERE user_id = ?", [targetId]);
+
+    await db.query(
+      "INSERT INTO activity_logs (user_id, action) VALUES (?, ?)",
+      [adminId, `Demoted user #${targetId} to normal user`]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("❌ Failed to demote user:", err.message);
+    res.status(500).json({ error: "Failed to demote user" });
+  }
+});
+
+
 // -----------------------------------------------------
 //  ACTIVITY FEED
 // -----------------------------------------------------
