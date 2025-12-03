@@ -8,6 +8,7 @@ import db from "../db.js";
 import { ensureAuth } from "../middleware/auth.js";
 import SibApiV3Sdk from "@getbrevo/brevo";
 
+
 const router = express.Router();
 
 function makeToken() {
@@ -49,10 +50,12 @@ function makeToken() {
 
 async function sendResetEmail(to, link) {
   try {
-    const client = SibApiV3Sdk.ApiClient.instance;
-    client.authentications["api-key"].apiKey = process.env.BREVO_API_KEY;
+    const client = new SibApiV3Sdk.TransactionalEmailsApi();
 
-    const api = new SibApiV3Sdk.TransactionalEmailsApi();
+    client.setApiKey(
+      SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey,
+      process.env.BREVO_API_KEY
+    );
 
     const email = {
       sender: { email: "no-reply@workspace-editor.website", name: "Workspace Editor" },
@@ -66,12 +69,13 @@ async function sendResetEmail(to, link) {
       `,
     };
 
-    const result = await api.sendTransacEmail(email);
+    const result = await client.sendTransacEmail(email);
+
     console.log("📨 Email sent via Brevo API:", result.messageId);
     return { sent: true };
 
   } catch (err) {
-    console.error("❌ Brevo API Error:", err.message);
+    console.error("❌ Brevo API Error:", err.response?.body || err.message);
     return { sent: false };
   }
 }
