@@ -6,6 +6,7 @@ import { body, validationResult } from "express-validator";
 import passport from "passport";
 import db from "../db.js";
 import { ensureAuth } from "../middleware/auth.js";
+import SibApiV3Sdk from "@getbrevo/brevo";
 
 const router = express.Router();
 
@@ -48,42 +49,32 @@ function makeToken() {
 
 async function sendResetEmail(to, link) {
   try {
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.log("❌ Missing SMTP credentials");
-      console.log("Reset link:", link);
-      return { sent: false };
-    }
+    const client = SibApiV3Sdk.ApiClient.instance;
+    client.authentications["api-key"].apiKey = process.env.BREVO_API_KEY;
 
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT),
-      secure: process.env.SMTP_SECURE === "true",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
+    const api = new SibApiV3Sdk.TransactionalEmailsApi();
 
-    const info = await transporter.sendMail({
-      from: `"Workspace Editor" <${process.env.FROM_EMAIL}>`,
-      to,
+    const email = {
+      sender: { email: "no-reply@workspace-editor.website", name: "Workspace Editor" },
+      to: [{ email: to }],
       subject: "Reset your password",
-      html: `
+      htmlContent: `
         <p>Hello,</p>
         <p>You requested a password reset.</p>
         <p><a href="${link}">${link}</a></p>
         <p>This link expires in 1 hour.</p>
       `,
-    });
+    };
 
-    console.log("📨 SMTP sent:", info.messageId);
+    const result = await api.sendTransacEmail(email);
+    console.log("📨 Email sent via Brevo API:", result.messageId);
     return { sent: true };
+
   } catch (err) {
-    console.error("❌ SMTP ERROR:", err);
+    console.error("❌ Brevo API Error:", err.message);
     return { sent: false };
   }
 }
-
 
 
 router.post(
