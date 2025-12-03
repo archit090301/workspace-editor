@@ -39,43 +39,11 @@ function makeToken() {
 // REGISTER
 // ============================
 
-// async function sendResetEmail(to, link) {
-//   console.log("⚠️ EMAIL SENDING DISABLED");
-//   console.log("Reset link:", link);
-
-//   return { sent: false };
-// }
-
 async function sendResetEmail(to, link) {
-  try {
-    const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 465,
-      secure: true,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
+  console.log("⚠️ EMAIL SENDING DISABLED");
+  console.log("Reset link:", link);
 
-    const info = await transporter.sendMail({
-      from: `"Workspace Editor" <${process.env.EMAIL_USER}>`,
-      to,
-      subject: "Reset your password",
-      html: `
-        <p>Hello,</p>
-        <p>You requested a password reset.</p>
-        <p><a href="${link}">${link}</a></p>
-        <p>This link expires in 1 hour.</p>
-      `,
-    });
-
-    console.log("📨 Gmail SMTP sent:", info.messageId);
-    return { sent: true };
-  } catch (err) {
-    console.error("❌ Gmail SMTP Error:", err.message);
-    return { sent: false };
-  }
+  return { sent: false };
 }
 
 
