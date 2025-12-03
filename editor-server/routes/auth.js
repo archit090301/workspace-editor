@@ -35,47 +35,16 @@ function makeToken() {
 // }
 
 
-async function sendResetEmail(to, link) {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    console.log("❌ Missing EMAIL_USER / EMAIL_PASS");
-    return { sent: false };
-  }
-
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
-
-  await transporter.sendMail({
-    from: `"Workspace Editor" <${process.env.EMAIL_USER}>`,
-    to,
-    subject: "Reset your password",
-    html: `
-      <p>Hello,</p>
-      <p>You requested a password reset.</p>
-      <p>Click this link to reset:</p>
-      <p><a href="${link}" target="_blank">${link}</a></p>
-      <p>This link expires in 1 hour.</p>
-    `,
-  });
-
-  return { sent: true };
-}
-
-
 // ============================
 // REGISTER
 // ============================
 
-// async function sendResetEmail(to, link) {
-//   console.log("⚠️ EMAIL SENDING DISABLED");
-//   console.log("Reset link:", link);
+async function sendResetEmail(to, link) {
+  console.log("⚠️ EMAIL SENDING DISABLED");
+  console.log("Reset link:", link);
 
-//   return { sent: false };
-// }
+  return { sent: false };
+}
 
 
 router.post(
